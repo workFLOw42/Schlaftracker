@@ -1,0 +1,5 @@
+{
+  "name": "SchlafGut - Sleep Tracker",
+  "description": "Ein umfassender Schlaf-Tracker mit Wachphasen-Analyse, Qualitätsbewertung und KI-gestützten Erkenntnissen von Gemini.",
+  "requestFramePermissions": []
+}
