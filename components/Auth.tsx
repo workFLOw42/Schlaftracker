@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { User } from '../types';
-import { saveUser, seedDemoData } from '../services/storageService';
+import { saveUser } from '../services/storageService';
 
 interface AuthProps {
   onLogin: (user: User) => void;
@@ -23,7 +24,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     };
 
     saveUser(newUser);
-    seedDemoData(newUser.id); // Add some fake data for the "Google" feeling
+    // seedDemoData(newUser.id); // Removed: Do not auto-fill test data for real usage
     onLogin(newUser);
   };
 
@@ -58,11 +59,11 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             className="w-full bg-white text-night-900 font-bold py-3 px-4 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
           >
             <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
-            {isRegistering ? 'Registrieren' : 'Mit Google anmelden'}
+            {isRegistering ? 'Registrieren' : 'Mit Google anmelden (Simuliert)'}
           </button>
           
           <p className="text-xs text-center text-gray-500 mt-4">
-            (Hinweis: Dies ist eine Demo. Die "Google-Anmeldung" simuliert lediglich einen Benutzeraccount lokal.)
+            Hinweis: Da dies eine Frontend-Demo ist, findet keine echte Verbindung zu Google statt. Dein Profil wird lokal auf diesem Gerät erstellt.
           </p>
         </form>
       </div>

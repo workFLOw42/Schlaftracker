@@ -1,0 +1,17 @@
+
+{
+  "name": "SchlafGut",
+  "short_name": "SchlafGut",
+  "description": "Dein intelligenter Schlafbegleiter",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "https://aistudiocdn.com/@google/genai@^1.30.0",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

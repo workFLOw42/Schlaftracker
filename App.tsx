@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, SleepEntry, AppView } from './types';
-import { getActiveUser, getEntries, saveEntry, setActiveUser, deleteEntry } from './services/storageService';
+import { getActiveUser, getEntries, saveEntry, setActiveUser, deleteEntry, clearUserData } from './services/storageService';
 import Auth from './components/Auth';
 import SleepLogger from './components/SleepLogger';
 import Statistics from './components/Statistics';
@@ -27,7 +27,8 @@ const App: React.FC = () => {
   }, []);
 
   const loadEntries = (userId: string) => {
-    setEntries(getEntries(userId));
+    const loaded = getEntries(userId);
+    setEntries(loaded);
   };
 
   const handleLogin = (user: User) => {
@@ -46,6 +47,14 @@ const App: React.FC = () => {
       setCurrentUser(updatedUser);
   };
 
+  const handleClearData = () => {
+      if (currentUser) {
+          clearUserData(currentUser.id);
+          setEntries([]); // Force immediate state update
+          setView(AppView.DASHBOARD);
+      }
+  };
+
   const handleSaveEntry = (entry: SleepEntry) => {
     saveEntry(entry);
     loadEntries(entry.userId);
@@ -54,8 +63,12 @@ const App: React.FC = () => {
   };
 
   const handleDeleteEntry = (entryId: string) => {
+      if (!currentUser) return;
+      
       deleteEntry(entryId);
-      if (currentUser) loadEntries(currentUser.id);
+      // Immediately filter local state to reflect change without waiting for storage roundtrip
+      setEntries(prev => prev.filter(e => e.id !== entryId));
+      
       setEditingEntry(null);
       setView(AppView.DASHBOARD);
   };
@@ -95,7 +108,7 @@ const App: React.FC = () => {
       {/* Header */}
       <header className="bg-night-800 border-b border-night-700 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView(AppView.DASHBOARD)}>
              <div className="w-10 h-10 bg-dream-500 rounded-lg flex items-center justify-center text-white shadow-lg shadow-dream-500/20">
                 <i className="fas fa-moon"></i>
              </div>
@@ -219,6 +232,7 @@ const App: React.FC = () => {
             <Profile 
                 user={currentUser} 
                 onUpdateUser={handleUpdateUser} 
+                onClearData={handleClearData}
                 onBack={() => setView(AppView.DASHBOARD)} 
             />
         )}

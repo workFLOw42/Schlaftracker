@@ -6,10 +6,11 @@ import { saveUser } from '../services/storageService';
 interface ProfileProps {
   user: User;
   onUpdateUser: (user: User) => void;
+  onClearData: () => void;
   onBack: () => void;
 }
 
-const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, onBack }) => {
+const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, onClearData, onBack }) => {
   const [defaultLatency, setDefaultLatency] = useState(user.settings?.defaultSleepLatency || 15);
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -27,6 +28,13 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, onBack }) => {
     onUpdateUser(updatedUser);
     setSuccessMsg('Einstellungen gespeichert!');
     setTimeout(() => setSuccessMsg(''), 3000);
+  };
+
+  const handleClearDataClick = () => {
+      if (window.confirm("Bist du sicher? Dies löscht alle deine erfassten Schlafdaten unwiderruflich.")) {
+          onClearData();
+          setSuccessMsg('Alle Daten erfolgreich gelöscht.');
+      }
   };
 
   return (
@@ -48,7 +56,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, onBack }) => {
           </div>
       </div>
 
-      <form onSubmit={handleSave} className="space-y-6">
+      <form onSubmit={handleSave} className="space-y-8">
           <div>
               <label className="block text-gray-300 font-medium mb-2">
                   <i className="fas fa-stopwatch mr-2 text-dream-400"></i>
@@ -76,13 +84,31 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, onBack }) => {
            >
              Speichern
            </button>
-           
-           {successMsg && (
-               <div className="bg-green-500/20 text-green-400 p-3 rounded text-center text-sm animate-fade-in">
-                   {successMsg}
-               </div>
-           )}
       </form>
+
+      {/* Danger Zone */}
+      <div className="mt-12 pt-8 border-t border-night-700">
+          <h3 className="text-red-400 font-bold mb-4 text-sm uppercase tracking-wider">Danger Zone</h3>
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+              <div>
+                  <p className="text-white font-medium">Alle Daten löschen</p>
+                  <p className="text-xs text-gray-400">Dies löscht alle Schlafeinträge dieses Benutzers permanent.</p>
+              </div>
+              <button 
+                type="button" 
+                onClick={handleClearDataClick}
+                className="bg-red-500/80 hover:bg-red-500 text-white text-sm px-4 py-2 rounded transition-colors whitespace-nowrap"
+              >
+                  Daten löschen
+              </button>
+          </div>
+      </div>
+
+       {successMsg && (
+           <div className="mt-4 bg-green-500/20 text-green-400 p-3 rounded text-center text-sm animate-fade-in">
+               {successMsg}
+           </div>
+       )}
     </div>
   );
 };

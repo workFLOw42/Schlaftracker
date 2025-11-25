@@ -75,6 +75,14 @@ export const deleteEntry = (entryId: string): void => {
   localStorage.setItem(STORAGE_KEYS.ENTRIES, JSON.stringify(allEntries));
 };
 
+export const clearUserData = (userId: string): void => {
+  const allEntriesJson = localStorage.getItem(STORAGE_KEYS.ENTRIES);
+  let allEntries: SleepEntry[] = allEntriesJson ? JSON.parse(allEntriesJson) : [];
+  // Remove all entries belonging to this user
+  allEntries = allEntries.filter(e => e.userId !== userId);
+  localStorage.setItem(STORAGE_KEYS.ENTRIES, JSON.stringify(allEntries));
+};
+
 // Helper to seed data for demo purposes
 export const seedDemoData = (userId: string) => {
   const existing = getEntries(userId);
