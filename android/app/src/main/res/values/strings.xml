@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SchlafGut</string>
+    <string name="nav_dashboard">Home</string>
+    <string name="nav_statistics">Statistik</string>
+    <string name="nav_settings">Einstellungen</string>
+    <string name="nav_add_sleep">Schlaf eintragen</string>
+</resources>
