@@ -147,13 +147,13 @@ fun SchlafGutRoot(
             )
         }
         else -> {
-            SchlafGutApp()
+            SchlafGutAppContent()
         }
     }
 }
 
 @Composable
-fun SchlafGutApp() {
+fun SchlafGutAppContent() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route

@@ -1,5 +1,6 @@
 package de.schlafgut.app.ui.statistics
 
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -62,7 +63,7 @@ fun StatisticsScreen(
             initialSelectedDateMillis = state.startDate
         )
         DatePickerDialog(
-            onDismissRequest = { showStartDatePicker = false },
+            onDismissRequest = { },
             confirmButton = {
                 TextButton(onClick = {
                     pickerState.selectedDateMillis?.let { millis ->
@@ -73,11 +74,10 @@ fun StatisticsScreen(
                             state.endDate
                         )
                     }
-                    showStartDatePicker = false
                 }) { Text("OK") }
             },
             dismissButton = {
-                TextButton(onClick = { showStartDatePicker = false }) { Text("Abbrechen") }
+                TextButton(onClick = { }) { Text("Abbrechen") }
             }
         ) { DatePicker(state = pickerState) }
     }
@@ -87,7 +87,7 @@ fun StatisticsScreen(
             initialSelectedDateMillis = state.endDate
         )
         DatePickerDialog(
-            onDismissRequest = { showEndDatePicker = false },
+            onDismissRequest = { },
             confirmButton = {
                 TextButton(onClick = {
                     pickerState.selectedDateMillis?.let { millis ->
@@ -98,11 +98,10 @@ fun StatisticsScreen(
                             DateTimeUtil.localDateToEpoch(date)
                         )
                     }
-                    showEndDatePicker = false
                 }) { Text("OK") }
             },
             dismissButton = {
-                TextButton(onClick = { showEndDatePicker = false }) { Text("Abbrechen") }
+                TextButton(onClick = { }) { Text("Abbrechen") }
             }
         ) { DatePicker(state = pickerState) }
     }
@@ -131,7 +130,7 @@ fun StatisticsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    OutlinedButton(onClick = { showStartDatePicker = true }) {
+                    OutlinedButton(onClick = { }) {
                         Text(DateTimeUtil.formatDateShort(state.startDate))
                     }
                     Text(
@@ -139,7 +138,7 @@ fun StatisticsScreen(
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 8.dp)
                     )
-                    OutlinedButton(onClick = { showEndDatePicker = true }) {
+                    OutlinedButton(onClick = { }) {
                         Text(DateTimeUtil.formatDateShort(state.endDate))
                     }
                 }
