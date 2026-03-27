@@ -11,6 +11,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,71 +33,76 @@ fun OnboardingScreen(
     var name by remember { mutableStateOf("") }
     var latency by remember { mutableIntStateOf(15) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
     ) {
-        Text(
-            text = "\uD83C\uDF19",
-            fontSize = 64.sp
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Willkommen bei SchlafGut",
-            style = MaterialTheme.typography.headlineLarge,
-            textAlign = TextAlign.Center
-        )
-
-        Text(
-            text = "Tracke deinen Schlaf \u2014 lokal, privat, ohne Account",
-            style = MaterialTheme.typography.bodyLarge,
-            color = TextSecondary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 8.dp)
-        )
-
-        Spacer(modifier = Modifier.height(40.dp))
-
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text("Dein Name (optional)") },
-            placeholder = { Text("z.B. Florian") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = "Standard-Einschlafzeit: $latency min",
-            style = MaterialTheme.typography.labelLarge
-        )
-        Slider(
-            value = latency.toFloat(),
-            onValueChange = { latency = it.toInt() },
-            valueRange = 0f..60f,
-            steps = 11, // 5-min steps
-            modifier = Modifier.fillMaxWidth()
-        )
-        Text(
-            text = "Wird automatisch bei neuen Eintr\u00E4gen vorausgef\u00FCllt",
-            style = MaterialTheme.typography.bodySmall,
-            color = TextSecondary
-        )
-
-        Spacer(modifier = Modifier.height(40.dp))
-
-        Button(
-            onClick = { onComplete(name, latency) },
-            modifier = Modifier.fillMaxWidth()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Los geht's!")
+            Text(
+                text = "\uD83C\uDF19",
+                fontSize = 64.sp
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Willkommen bei SchlafGut",
+                style = MaterialTheme.typography.headlineLarge,
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = "Tracke deinen Schlaf \u2014 lokal, privat, ohne Account",
+                style = MaterialTheme.typography.bodyLarge,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Dein Name (optional)") },
+                placeholder = { Text("z.B. Florian") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "Standard-Einschlafzeit: $latency min",
+                style = MaterialTheme.typography.labelLarge
+            )
+            Slider(
+                value = latency.toFloat(),
+                onValueChange = { latency = it.toInt() },
+                valueRange = 0f..60f,
+                steps = 11, // 5-min steps
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = "Wird automatisch bei neuen Eintr\u00E4gen vorausgef\u00FCllt",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            Button(
+                onClick = { onComplete(name, latency) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Los geht's!")
+            }
         }
     }
 }
