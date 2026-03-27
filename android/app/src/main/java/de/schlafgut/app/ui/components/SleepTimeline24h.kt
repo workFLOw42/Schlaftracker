@@ -1,13 +1,10 @@
 package de.schlafgut.app.ui.components
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,8 +12,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
@@ -24,11 +19,11 @@ import de.schlafgut.app.data.entity.SleepEntryEntity
 import de.schlafgut.app.ui.theme.LatencyColor
 import de.schlafgut.app.ui.theme.MedianBedColor
 import de.schlafgut.app.ui.theme.MedianWakeColor
-import de.schlafgut.app.ui.theme.Night600
 import de.schlafgut.app.ui.theme.Night700
 import de.schlafgut.app.ui.theme.TextMuted
 import de.schlafgut.app.ui.theme.WakeWindowColor
 import de.schlafgut.app.ui.theme.qualityColor
+import de.schlafgut.app.util.DateTimeUtil
 
 /**
  * 24h-Timeline (18:00 → 18:00) die alle Einträge als horizontale Balken zeigt.
@@ -65,8 +60,8 @@ fun SleepTimeline24h(
     val totalHeight = topPadding + (entries.size * (barHeight + barSpacing)) + bottomPadding
 
     // Median calculations
-    val bedNorms = entries.map { normalizeToAxis(it.bedTime) }
-    val wakeNorms = entries.map { normalizeToAxis(it.wakeTime) }
+    val bedNorms = entries.map { DateTimeUtil.normalizeToAxis(it.bedTime) }
+    val wakeNorms = entries.map { DateTimeUtil.normalizeToAxis(it.wakeTime) }
     val medianBed = median(bedNorms)
     val medianWake = median(wakeNorms)
 
@@ -113,8 +108,8 @@ fun SleepTimeline24h(
             // Draw each entry as a bar
             entries.forEachIndexed { index, entry ->
                 val y = topPadding + index * (barHeight + barSpacing)
-                val bedNorm = normalizeToAxis(entry.bedTime)
-                val wakeNorm = normalizeToAxis(entry.wakeTime)
+                val bedNorm = DateTimeUtil.normalizeToAxis(entry.bedTime)
+                val wakeNorm = DateTimeUtil.normalizeToAxis(entry.wakeTime)
 
                 val startX = leftPad + bedNorm * (width - leftPad)
                 val endX = leftPad + wakeNorm * (width - leftPad)
@@ -143,8 +138,8 @@ fun SleepTimeline24h(
 
                 // Wake windows
                 entry.wakeWindows.forEach { window ->
-                    val wStart = normalizeToAxis(window.start)
-                    val wEnd = normalizeToAxis(window.end)
+                    val wStart = DateTimeUtil.normalizeToAxis(window.start)
+                    val wEnd = DateTimeUtil.normalizeToAxis(window.end)
                     val wx = leftPad + wStart * (width - leftPad)
                     val ww = ((wEnd - wStart) * (width - leftPad)).coerceAtLeast(2f)
                     drawRect(

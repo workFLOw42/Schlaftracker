@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import de.schlafgut.app.data.entity.SleepEntryEntity
@@ -19,6 +20,7 @@ import de.schlafgut.app.ui.theme.qualityColor
 /**
  * Inline-Timeline eines einzelnen Schlafeintrags.
  * Zeigt: [Latenz(grau)][Schlaf(qualitätsfarbe)][Wachphasen(orange overlays)]
+ * Neu: Aufgestanden-Phasen werden innerhalb der Wachphasen dunkler markiert.
  */
 @Composable
 fun SleepTimeline(
@@ -31,6 +33,7 @@ fun SleepTimeline(
 
     val qualColor = qualityColor(entry.quality)
     val cornerRadius = CornerRadius(6f, 6f)
+    val outOfBedColor = Color(0xFFD32F2F) // A darker/distinct red-orange for out of bed
 
     Canvas(
         modifier = modifier
@@ -82,26 +85,20 @@ fun SleepTimeline(
                 topLeft = Offset(x.coerceAtLeast(0f), 0f),
                 size = Size(w.coerceAtLeast(2f), height)
             )
+
+            // Sub-segment: Out of bed
+            if (window.outOfBed && window.outOfBedStart != null && window.outOfBedEnd != null) {
+                val outStartMin = (window.outOfBedStart - entry.bedTime) / 60_000f
+                val outEndMin = (window.outOfBedEnd - entry.bedTime) / 60_000f
+                val ox = (outStartMin / totalMinutes) * width
+                val ow = ((outEndMin - outStartMin) / totalMinutes) * width
+                
+                drawRect(
+                    color = outOfBedColor,
+                    topLeft = Offset(ox.coerceAtLeast(0f), height * 0.2f),
+                    size = Size(ow.coerceAtLeast(1f), height * 0.6f)
+                )
+            }
         }
     }
-}
-
-/**
- * Normalisiert eine Epoch-Zeit auf eine 18:00-18:00 Achse.
- * Gibt einen Wert von 0.0 (18:00) bis 1.0 (18:00 nächster Tag) zurück.
- */
-fun normalizeToAxis(epochMillis: Long): Float {
-    val dt = java.time.Instant.ofEpochMilli(epochMillis)
-        .atZone(java.time.ZoneId.systemDefault())
-        .toLocalDateTime()
-    val hour = dt.hour
-    val minute = dt.minute
-
-    val minutesFrom18 = if (hour >= 18) {
-        (hour - 18) * 60 + minute
-    } else {
-        (hour + 6) * 60 + minute // +6 because 24-18=6
-    }
-
-    return minutesFrom18 / (24f * 60f)
 }

@@ -43,7 +43,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.schlafgut.app.data.health.HealthConnectManager
 import de.schlafgut.app.ui.theme.DangerRed
 import de.schlafgut.app.ui.theme.DangerRedBg
-import de.schlafgut.app.ui.theme.TextSecondary
 
 @Composable
 fun SettingsScreen(
@@ -140,7 +139,7 @@ fun SettingsScreen(
                 Text(
                     text = "Wird automatisch bei neuen Eintr\u00e4gen verwendet",
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -165,7 +164,7 @@ fun SettingsScreen(
                         Text(
                             text = "Fingerabdruck, PIN oder Muster",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Switch(
@@ -190,7 +189,7 @@ fun SettingsScreen(
                         Text(
                             text = "Health Connect wird auf diesem Ger\u00e4t nicht unterst\u00fctzt",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 8.dp)
                         )
                     }
@@ -198,7 +197,7 @@ fun SettingsScreen(
                         Text(
                             text = "Health Connect muss installiert werden",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 8.dp)
                         )
                         OutlinedButton(
@@ -236,7 +235,7 @@ fun SettingsScreen(
                                 Text(
                                     text = "Gewicht, Puls, Schritte, SpO2 aus anderen Apps",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = TextSecondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Switch(
@@ -330,7 +329,7 @@ fun SettingsScreen(
         Text(
             text = "SchlafGut v1.0.0",
             style = MaterialTheme.typography.bodySmall,
-            color = TextSecondary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp)
         )
 

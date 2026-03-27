@@ -1,31 +1,82 @@
 package de.schlafgut.app.ui.theme
 
+import android.app.Activity
+import android.os.Build
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
-private val SchlafGutColorScheme = darkColorScheme(
-    primary = Dream500,
-    onPrimary = TextPrimary,
-    primaryContainer = Dream600,
-    onPrimaryContainer = Dream300,
+private val DarkColorScheme = darkColorScheme(
+    primary = Dream400,
     secondary = MedianWakeColor,
-    onSecondary = TextPrimary,
+    tertiary = Dream300,
     background = Night900,
-    onBackground = TextPrimary,
     surface = Night800,
+    onPrimary = Night900,
+    onSecondary = Night900,
+    onTertiary = Night900,
+    onBackground = TextPrimary,
     onSurface = TextPrimary,
     surfaceVariant = Night700,
     onSurfaceVariant = TextSecondary,
-    outline = Night600,
-    error = DangerRed,
-    onError = TextPrimary
+    outline = Night500
+)
+
+private val LightColorScheme = lightColorScheme(
+    primary = Dream600,
+    secondary = MedianBedColor,
+    tertiary = Dream500,
+    background = Color(0xFFFFFBFE),
+    surface = Color.White,
+    onPrimary = Color.White,
+    onSecondary = Color.White,
+    onTertiary = Color.White,
+    onBackground = Color(0xFF1C1B1F),
+    onSurface = Color(0xFF1C1B1F),
+    surfaceVariant = Color(0xFFF1F5F9),
+    onSurfaceVariant = Color(0xFF475569),
+    outline = Color(0xFFCBD5E1)
 )
 
 @Composable
-fun SchlafGutTheme(content: @Composable () -> Unit) {
+fun SchlafGutTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    // Dynamic color is available on Android 12+
+    dynamicColor: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    val colorScheme = when {
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            val context = LocalContext.current
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        }
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
+    }
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            // With enableEdgeToEdge() in MainActivity, we don't need to set statusBarColor here.
+            // We only need to control whether the icons are light or dark.
+            val insetsController = WindowCompat.getInsetsController(window, view)
+            insetsController.isAppearanceLightStatusBars = !darkTheme
+            insetsController.isAppearanceLightNavigationBars = !darkTheme
+        }
+    }
+
     MaterialTheme(
-        colorScheme = SchlafGutColorScheme,
+        colorScheme = colorScheme,
         typography = SchlafGutTypography,
         content = content
     )

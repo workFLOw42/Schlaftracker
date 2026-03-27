@@ -6,7 +6,6 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -110,4 +109,16 @@ object DateTimeUtil {
 
     fun todayEnd(): Long =
         localDateTimeToEpoch(LocalDateTime.of(LocalDate.now(), LocalTime.MAX))
+
+    /**
+     * Normalisiert einen Zeitstempel auf eine 24h-Achse von 18:00 bis 18:00.
+     * Rückgabewert ist 0.0 bis 1.0.
+     */
+    fun normalizeToAxis(epochMillis: Long): Float {
+        val dt = epochToLocalDateTime(epochMillis)
+        val totalMinutes = dt.hour * 60 + dt.minute
+        // Verschiebung um 6 Stunden, damit 18:00 -> 0:00 wird
+        val shiftedMinutes = (totalMinutes + 360) % 1440
+        return shiftedMinutes / 1440f
+    }
 }

@@ -42,7 +42,6 @@ import de.schlafgut.app.ui.components.DurationChart
 import de.schlafgut.app.ui.components.InterruptionsChart
 import de.schlafgut.app.ui.components.QualityChart
 import de.schlafgut.app.ui.components.SleepTimeline24h
-import de.schlafgut.app.ui.theme.TextSecondary
 import de.schlafgut.app.util.DateTimeUtil
 import java.time.Instant
 import java.time.ZoneOffset
@@ -161,17 +160,17 @@ fun StatisticsScreen(
                 Text(
                     text = "\u00D8 Dauer: ${DateTimeUtil.formatDuration(state.averageDurationMinutes.toInt())}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = "\u00D8 Qualit\u00E4t: ${String.format("%.1f", state.averageQuality)}/10",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = "\u00D8 Unterbrechungen: ${String.format("%.1f", state.averageInterruptions)}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

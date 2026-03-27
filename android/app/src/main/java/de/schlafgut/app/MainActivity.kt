@@ -1,26 +1,35 @@
 package de.schlafgut.app
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,13 +40,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -47,14 +53,14 @@ import androidx.navigation.navArgument
 import dagger.hilt.android.AndroidEntryPoint
 import de.schlafgut.app.data.entity.UserSettingsEntity
 import de.schlafgut.app.data.repository.SleepRepository
+import de.schlafgut.app.ui.allentries.AllEntriesScreen
 import de.schlafgut.app.ui.dashboard.DashboardScreen
 import de.schlafgut.app.ui.logger.SleepLoggerScreen
 import de.schlafgut.app.ui.navigation.Screen
-import de.schlafgut.app.ui.navigation.bottomNavItems
+import de.schlafgut.app.ui.navigation.navigationItems
 import de.schlafgut.app.ui.onboarding.OnboardingScreen
 import de.schlafgut.app.ui.settings.SettingsScreen
 import de.schlafgut.app.ui.statistics.StatisticsScreen
-import de.schlafgut.app.ui.theme.Night900
 import de.schlafgut.app.ui.theme.SchlafGutTheme
 import de.schlafgut.app.ui.theme.TextSecondary
 import de.schlafgut.app.util.BiometricHelper
@@ -68,11 +74,11 @@ class MainActivity : FragmentActivity() {
     lateinit var repository: SleepRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             SchlafGutTheme {
-                // Explizite Hintergrundfarbe auf dem Root-Container
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -153,117 +159,144 @@ fun SchlafGutRoot(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SchlafGutAppContent() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
-    val showBottomBar = currentRoute in listOf(
+    val showNav = currentRoute in listOf(
         Screen.Dashboard.route,
+        Screen.AllEntries.route,
         Screen.Statistics.route,
         Screen.Settings.route
     )
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            if (showBottomBar) {
-                NavigationBar(
-                    containerColor = Night900,
-                    tonalElevation = 0.dp
-                ) {
-                    bottomNavItems.forEach { item ->
-                        val selected = navBackStackEntry?.destination?.hierarchy?.any {
-                            it.route == item.screen.route
-                        } == true
-
-                        NavigationBarItem(
-                            icon = {
-                                Icon(
-                                    imageVector = item.icon,
-                                    contentDescription = item.label
-                                )
-                            },
-                            label = { Text(item.label) },
-                            selected = selected,
-                            onClick = {
-                                navController.navigate(item.screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                            )
-                        )
-                    }
-                }
-            }
-        },
-        floatingActionButton = {
-            if (showBottomBar) {
-                FloatingActionButton(
-                    onClick = {
-                        navController.navigate(Screen.sleepLoggerRoute())
-                    },
-                    shape = CircleShape,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(56.dp)
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = showNav,
+        drawerContent = {
+            ModalDrawerSheet {
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Schlaf eintragen",
-                        tint = MaterialTheme.colorScheme.onPrimary
+                        painter = painterResource(id = R.drawable.ic_splash_logo),
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp),
+                        tint = Color.Unspecified
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        "SchlafGut",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                navigationItems.forEach { item ->
+                    NavigationDrawerItem(
+                        icon = { Icon(item.icon, contentDescription = null) },
+                        label = { Text(item.label) },
+                        selected = currentRoute == item.screen.route,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            navController.navigate(item.screen.route) {
+                                popUpTo(Screen.Dashboard.route) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                 }
             }
         }
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Dashboard.route,
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            composable(Screen.Dashboard.route) {
-                DashboardScreen(
-                    onEntryClick = { entryId ->
-                        navController.navigate(Screen.sleepLoggerRoute(entryId))
-                    },
-                    onViewAllClick = {
-                        navController.navigate(Screen.Statistics.route)
+    ) {
+        Scaffold(
+            topBar = {
+                // Dashboard has its own TopAppBar now to show the name
+                if (showNav && currentRoute != Screen.Dashboard.route && currentRoute != Screen.AllEntries.route) {
+                    TopAppBar(
+                        title = {
+                            val label = navigationItems.find { it.screen.route == currentRoute }?.label ?: "SchlafGut"
+                            Text(label)
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(Icons.Default.Menu, contentDescription = "Menü")
+                            }
+                        }
+                    )
+                }
+            },
+            floatingActionButton = {
+                if (showNav) {
+                    FloatingActionButton(
+                        onClick = {
+                            navController.navigate(Screen.sleepLoggerRoute())
+                        },
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(56.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Schlaf eintragen")
                     }
-                )
+                }
             }
-
-            composable(
-                route = "sleep_logger?entryId={entryId}",
-                arguments = listOf(
-                    navArgument("entryId") {
-                        type = NavType.StringType
-                        nullable = true
-                        defaultValue = null
-                    }
-                )
+        ) { innerPadding ->
+            NavHost(
+                navController = navController,
+                startDestination = Screen.Dashboard.route,
+                modifier = Modifier.padding(innerPadding)
             ) {
-                SleepLoggerScreen(
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
+                composable(Screen.Dashboard.route) {
+                    DashboardScreen(
+                        onMenuClick = { scope.launch { drawerState.open() } },
+                        onEntryClick = { entryId ->
+                            navController.navigate(Screen.sleepLoggerRoute(entryId))
+                        },
+                        onViewAllClick = {
+                            navController.navigate(Screen.AllEntries.route)
+                        }
+                    )
+                }
 
-            composable(Screen.Statistics.route) {
-                StatisticsScreen()
-            }
+                composable(Screen.AllEntries.route) {
+                    AllEntriesScreen(
+                        onMenuClick = { scope.launch { drawerState.open() } },
+                        onEntryClick = { entryId ->
+                            navController.navigate(Screen.sleepLoggerRoute(entryId))
+                        }
+                    )
+                }
 
-            composable(Screen.Settings.route) {
-                SettingsScreen()
+                composable(
+                    route = "sleep_logger?entryId={entryId}",
+                    arguments = listOf(
+                        navArgument("entryId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        }
+                    )
+                ) {
+                    SleepLoggerScreen(
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(Screen.Statistics.route) {
+                    StatisticsScreen()
+                }
+
+                composable(Screen.Settings.route) {
+                    SettingsScreen()
+                }
             }
         }
     }

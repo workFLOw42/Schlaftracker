@@ -21,7 +21,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import de.schlafgut.app.data.entity.SleepEntryEntity
 import de.schlafgut.app.ui.theme.NapColor
-import de.schlafgut.app.ui.theme.TextSecondary
 import de.schlafgut.app.ui.theme.qualityColor
 import de.schlafgut.app.util.DateTimeUtil
 
@@ -68,7 +67,8 @@ fun SleepEntryRow(
                 ) {
                     Text(
                         text = DateTimeUtil.formatDateFull(entry.date),
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     if (entry.isNap) {
                         Text(
@@ -84,18 +84,18 @@ fun SleepEntryRow(
                     Text(
                         text = DateTimeUtil.formatDuration(entry.sleepDurationMinutes),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "${DateTimeUtil.formatTime(entry.bedTime)} \u2013 ${DateTimeUtil.formatTime(entry.wakeTime)}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (entry.interruptionCount > 0) {
                         Text(
                             text = "${entry.interruptionCount}x wach",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

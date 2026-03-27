@@ -3,7 +3,6 @@ package de.schlafgut.app.ui.settings
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -59,8 +58,22 @@ class SettingsViewModel @Inject constructor(
 
     fun setUserName(name: String) = _uiState.update { it.copy(userName = name) }
     fun setDefaultLatency(minutes: Int) = _uiState.update { it.copy(defaultSleepLatency = minutes) }
-    fun setAppLockEnabled(enabled: Boolean) = _uiState.update { it.copy(appLockEnabled = enabled) }
-    fun setHealthConnectEnabled(enabled: Boolean) = _uiState.update { it.copy(healthConnectEnabled = enabled) }
+
+    fun setAppLockEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            val currentSettings = repository.getSettingsOnce()
+            repository.saveSettings(currentSettings.copy(appLockEnabled = enabled))
+            // UI state will be updated via the collector in init
+        }
+    }
+
+    fun setHealthConnectEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            val currentSettings = repository.getSettingsOnce()
+            repository.saveSettings(currentSettings.copy(healthConnectEnabled = enabled))
+        }
+    }
+
     fun showClearDataDialog(show: Boolean) = _uiState.update { it.copy(showClearDataDialog = show) }
     fun clearSuccessMessage() = _uiState.update { it.copy(successMessage = null) }
 

@@ -13,10 +13,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,7 +45,6 @@ import de.schlafgut.app.ui.components.DateTimePickerDialog
 import de.schlafgut.app.ui.components.WakeWindowDialog
 import de.schlafgut.app.ui.theme.DangerRed
 import de.schlafgut.app.ui.theme.DangerRedBg
-import de.schlafgut.app.ui.theme.TextSecondary
 import de.schlafgut.app.ui.theme.WakeWindowColor
 import de.schlafgut.app.ui.theme.qualityColor
 import de.schlafgut.app.util.DateTimeUtil
@@ -72,7 +69,7 @@ fun SleepLoggerScreen(
     // Picker dialogs
     if (showBedTimePicker) {
         DateTimePickerDialog(
-            title = "Bettzeit w\u00E4hlen",
+            title = "Bettzeit wählen",
             initialEpochMillis = state.bedTime,
             onConfirm = {
                 viewModel.setBedTime(it)
@@ -84,7 +81,7 @@ fun SleepLoggerScreen(
 
     if (showWakeTimePicker) {
         DateTimePickerDialog(
-            title = "Aufwachzeit w\u00E4hlen",
+            title = "Aufwachzeit wählen",
             initialEpochMillis = state.wakeTime,
             onConfirm = {
                 viewModel.setWakeTime(it)
@@ -98,8 +95,8 @@ fun SleepLoggerScreen(
         WakeWindowDialog(
             bedTimeEpoch = state.bedTime,
             wakeTimeEpoch = state.wakeTime,
-            onConfirm = { start, end ->
-                viewModel.addWakeWindow(start, end)
+            onConfirm = { start, end, outOfBed, outStart, outEnd ->
+                viewModel.addWakeWindow(start, end, outOfBed, outStart, outEnd)
                 showWakeWindowDialog = false
             },
             onDismiss = { showWakeWindowDialog = false }
@@ -116,7 +113,7 @@ fun SleepLoggerScreen(
             },
             navigationIcon = {
                 IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zur\u00fcck")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -148,12 +145,12 @@ fun SleepLoggerScreen(
                 FilterChip(
                     selected = !state.isNap,
                     onClick = { if (state.isNap) viewModel.setIsNap(false) },
-                    label = { Text("\uD83C\uDF19 Nachtschlaf") }
+                    label = { Text("🌙 Nachtschlaf") }
                 )
                 FilterChip(
                     selected = state.isNap,
                     onClick = { if (!state.isNap) viewModel.setIsNap(true) },
-                    label = { Text("\u2600\uFE0F Nickerchen") }
+                    label = { Text("☀️ Nickerchen") }
                 )
             }
 
@@ -196,7 +193,7 @@ fun SleepLoggerScreen(
                         Text(
                             text = "= ${DateTimeUtil.formatDuration(duration)} Schlaf",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp)
                         )
                     }
@@ -261,7 +258,7 @@ fun SleepLoggerScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "${DateTimeUtil.formatTime(window.start)} \u2013 ${
+                                text = "${DateTimeUtil.formatTime(window.start)} – ${
                                     DateTimeUtil.formatTime(window.end)
                                 } (${window.durationMinutes} min)",
                                 style = MaterialTheme.typography.bodyMedium
@@ -276,7 +273,7 @@ fun SleepLoggerScreen(
                         onClick = { showWakeWindowDialog = true },
                         modifier = Modifier.padding(top = 8.dp)
                     ) {
-                        Text("+ Wachphase hinzuf\u00fcgen")
+                        Text("+ Wachphase hinzufügen")
                     }
                 }
             }
@@ -292,18 +289,18 @@ fun SleepLoggerScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Schlafqualit\u00E4t", style = MaterialTheme.typography.labelLarge)
+                        Text("Schlafqualität", style = MaterialTheme.typography.labelLarge)
                         Text(
-                            text = "${state.quality}/10",
-                            style = MaterialTheme.typography.titleMedium,
+                            "${state.quality}/10",
+                            style = MaterialTheme.typography.bodyMedium,
                             color = qualityColor(state.quality)
                         )
                     }
                     Slider(
                         value = state.quality.toFloat(),
                         onValueChange = { viewModel.setQuality(it.toInt()) },
-                        valueRange = 1f..10f,
-                        steps = 8,
+                        valueRange = 0f..10f,
+                        steps = 9,
                         colors = SliderDefaults.colors(
                             thumbColor = qualityColor(state.quality),
                             activeTrackColor = qualityColor(state.quality)
@@ -317,49 +314,45 @@ fun SleepLoggerScreen(
                 value = state.notes,
                 onValueChange = { viewModel.setNotes(it) },
                 label = { Text("Notizen") },
-                placeholder = { Text("Traumfetzen, Stress, sp\u00E4tes Essen...") },
                 modifier = Modifier.fillMaxWidth(),
-                minLines = 2
+                minLines = 3
             )
 
-            // Save
+            // Save / Delete buttons
             Button(
-                onClick = {
-                    viewModel.clearError()
-                    viewModel.save()
-                },
-                modifier = Modifier.fillMaxWidth()
+                onClick = { viewModel.save() },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium
             ) {
-                Text("Speichern")
+                Text(if (state.isEditing) "Speichern" else "Eintragen")
             }
 
-            // Delete
             if (state.isEditing) {
-                OutlinedButton(
+                TextButton(
                     onClick = { showDeleteDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.Delete, contentDescription = null)
-                    Text("  Eintrag l\u00F6schen")
+                    Text("Eintrag löschen", color = DangerRed)
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Eintrag l\u00F6schen?") },
-            text = { Text("Dieser Eintrag wird unwiderruflich gel\u00F6scht.") },
+            title = { Text("Eintrag löschen?") },
+            text = { Text("Möchtest du diesen Schlafeintrag wirklich dauerhaft entfernen?") },
             confirmButton = {
-                TextButton(onClick = {
-                    showDeleteDialog = false
-                    viewModel.delete()
-                }) {
-                    Text("L\u00F6schen", color = DangerRed)
+                TextButton(
+                    onClick = {
+                        viewModel.delete()
+                        showDeleteDialog = false
+                    }
+                ) {
+                    Text("Löschen", color = DangerRed)
                 }
             },
             dismissButton = {

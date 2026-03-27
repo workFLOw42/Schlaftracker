@@ -10,7 +10,7 @@ object BiometricHelper {
     fun canAuthenticate(activity: FragmentActivity): Boolean {
         val biometricManager = BiometricManager.from(activity)
         return biometricManager.canAuthenticate(
-            BiometricManager.Authenticators.BIOMETRIC_WEAK or
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or
                 BiometricManager.Authenticators.DEVICE_CREDENTIAL
         ) == BiometricManager.BIOMETRIC_SUCCESS
     }
@@ -28,9 +28,11 @@ object BiometricHelper {
             }
 
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                if (errorCode != BiometricPrompt.ERROR_USER_CANCELED &&
-                    errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON
-                ) {
+                // If user cancels or hasn't set up screen lock, we report it so the UI can react
+                if (errorCode == BiometricPrompt.ERROR_USER_CANCELED || 
+                    errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                    onError("Authentifizierung abgebrochen")
+                } else {
                     onError(errString.toString())
                 }
             }
@@ -38,13 +40,18 @@ object BiometricHelper {
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle("SchlafGut")
-            .setSubtitle("Entsperre die App")
+            .setSubtitle("Bitte entsperre die App mit deiner Displaysperre")
+            // This allows using Biometrics OR Device PIN/Pattern/Password
             .setAllowedAuthenticators(
-                BiometricManager.Authenticators.BIOMETRIC_WEAK or
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or
                     BiometricManager.Authenticators.DEVICE_CREDENTIAL
             )
             .build()
 
-        BiometricPrompt(activity, executor, callback).authenticate(promptInfo)
+        try {
+            BiometricPrompt(activity, executor, callback).authenticate(promptInfo)
+        } catch (e: Exception) {
+            onError(e.message ?: "Fehler bei der Authentifizierung")
+        }
     }
 }

@@ -98,8 +98,14 @@ class SleepLoggerViewModel @Inject constructor(
     fun setNotes(notes: String) = _uiState.update { it.copy(notes = notes) }
     fun clearError() = _uiState.update { it.copy(errorMessage = null) }
 
-    fun addWakeWindow(start: Long, end: Long) {
-        val window = WakeWindow(start, end)
+    fun addWakeWindow(start: Long, end: Long, outOfBed: Boolean, outStart: Long?, outEnd: Long?) {
+        val window = WakeWindow(
+            start = start,
+            end = end,
+            outOfBed = outOfBed,
+            outOfBedStart = outStart,
+            outOfBedEnd = outEnd
+        )
         val state = _uiState.value
 
         if (!SleepCalculator.validateWakeWindow(window, state.bedTime, state.wakeTime)) {
@@ -138,7 +144,7 @@ class SleepLoggerViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     errorMessage = "Die berechnete Schlafzeit ist negativ. " +
-                        "Pr\u00fcfe Einschlafzeit und Wachphasen."
+                        "Prüfe Einschlafzeit und Wachphasen."
                 )
             }
             return
@@ -152,7 +158,7 @@ class SleepLoggerViewModel @Inject constructor(
             if (overlaps.isNotEmpty()) {
                 _uiState.update {
                     it.copy(
-                        errorMessage = "Dieser Zeitraum \u00fcberschneidet sich mit einem " +
+                        errorMessage = "Dieser Zeitraum überschneidet sich mit einem " +
                             "existierenden Eintrag."
                     )
                 }

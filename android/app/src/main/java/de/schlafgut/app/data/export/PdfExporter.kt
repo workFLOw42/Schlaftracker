@@ -2,7 +2,6 @@ package de.schlafgut.app.data.export
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.DashPathEffect
 import android.graphics.Paint
@@ -10,7 +9,6 @@ import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import androidx.core.content.FileProvider
 import de.schlafgut.app.data.entity.SleepEntryEntity
-import de.schlafgut.app.ui.components.normalizeToAxis
 import de.schlafgut.app.util.DateTimeUtil
 import java.io.File
 import java.io.FileOutputStream
@@ -110,8 +108,8 @@ object PdfExporter {
         }
 
         // Median lines
-        val bedNorms = sorted.map { normalizeToAxis(it.bedTime) }
-        val wakeNorms = sorted.map { normalizeToAxis(it.wakeTime) }
+        val bedNorms = sorted.map { DateTimeUtil.normalizeToAxis(it.bedTime) }
+        val wakeNorms = sorted.map { DateTimeUtil.normalizeToAxis(it.wakeTime) }
         val medBed = bedNorms.sorted().let { it[it.size / 2] }
         val medWake = wakeNorms.sorted().let { it[it.size / 2] }
         val medBedX = margin + medBed * contentWidth
@@ -124,8 +122,8 @@ object PdfExporter {
         // Entry bars
         sorted.forEachIndexed { i, entry ->
             val barY = timelineTop + i * (barHeight + barGap)
-            val bedNorm = normalizeToAxis(entry.bedTime)
-            val wakeNorm = normalizeToAxis(entry.wakeTime)
+            val bedNorm = DateTimeUtil.normalizeToAxis(entry.bedTime)
+            val wakeNorm = DateTimeUtil.normalizeToAxis(entry.wakeTime)
             val startX = margin + bedNorm * contentWidth
             val endX = margin + wakeNorm * contentWidth
             val barW = (endX - startX).coerceAtLeast(4f)
@@ -145,8 +143,8 @@ object PdfExporter {
 
             // Wake windows
             entry.wakeWindows.forEach { window ->
-                val ws = normalizeToAxis(window.start)
-                val we = normalizeToAxis(window.end)
+                val ws = DateTimeUtil.normalizeToAxis(window.start)
+                val we = DateTimeUtil.normalizeToAxis(window.end)
                 val wx = margin + ws * contentWidth
                 val ww = ((we - ws) * contentWidth).coerceAtLeast(2f)
                 canvas.drawRect(wx, barY, wx + ww, barY + barHeight, wakePaint)
