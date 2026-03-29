@@ -6,6 +6,9 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import de.schlafgut.app.data.backup.DriveBackupManager
+import de.schlafgut.app.data.entity.HealthSnapshotEntity
+import de.schlafgut.app.data.entity.MedicationEntry
 import de.schlafgut.app.data.entity.UserSettingsEntity
 import de.schlafgut.app.data.export.JsonImportExport
 import de.schlafgut.app.data.health.HealthConnectManager
@@ -24,13 +27,31 @@ data class SettingsUiState(
     val healthConnectAvailability: HealthConnectManager.Availability = HealthConnectManager.Availability.NOT_SUPPORTED,
     val onboardingCompleted: Boolean = false,
     val showClearDataDialog: Boolean = false,
-    val successMessage: String? = null
+    val successMessage: String? = null,
+
+    // Feste Medikamente
+    val regularMedications: List<MedicationEntry> = emptyList(),
+
+    // Health Connect Profil-Daten
+    val latestWeight: Double? = null,
+    val latestRestingHr: Int? = null,
+    val latestSteps: Int? = null,
+    val latestSpO2: Double? = null,
+
+    // Google Drive Backup
+    val driveAccountEmail: String? = null,
+    val isDriveBackupRunning: Boolean = false,
+    val showPasswordDialog: Boolean = false,
+    val passwordDialogMode: PasswordDialogMode = PasswordDialogMode.UPLOAD
 )
+
+enum class PasswordDialogMode { UPLOAD, RESTORE }
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val repository: SleepRepository,
-    private val healthConnectManager: HealthConnectManager
+    private val healthConnectManager: HealthConnectManager,
+    private val driveBackupManager: DriveBackupManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -49,9 +70,31 @@ class SettingsViewModel @Inject constructor(
                         defaultSleepLatency = s.defaultSleepLatency,
                         appLockEnabled = s.appLockEnabled,
                         healthConnectEnabled = s.healthConnectEnabled,
-                        onboardingCompleted = s.onboardingCompleted
+                        onboardingCompleted = s.onboardingCompleted,
+                        regularMedications = s.regularMedications
                     )
                 }
+            }
+        }
+        loadHealthProfileData()
+    }
+
+    private fun loadHealthProfileData() {
+        viewModelScope.launch {
+            val settings = repository.getSettingsOnce()
+            if (!settings.healthConnectEnabled) return@launch
+
+            val entries = repository.getRecentEntriesOnce(1)
+            val lastEntry = entries.firstOrNull() ?: return@launch
+            val snapshot = repository.getHealthSnapshot(lastEntry.id) ?: return@launch
+
+            _uiState.update {
+                it.copy(
+                    latestWeight = snapshot.weightKg,
+                    latestRestingHr = snapshot.restingHeartRate,
+                    latestSteps = snapshot.stepsTotal,
+                    latestSpO2 = snapshot.oxygenSaturation
+                )
             }
         }
     }
@@ -63,7 +106,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val currentSettings = repository.getSettingsOnce()
             repository.saveSettings(currentSettings.copy(appLockEnabled = enabled))
-            // UI state will be updated via the collector in init
         }
     }
 
@@ -71,7 +113,20 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val currentSettings = repository.getSettingsOnce()
             repository.saveSettings(currentSettings.copy(healthConnectEnabled = enabled))
+            if (enabled) loadHealthProfileData()
         }
+    }
+
+    // --- Feste Medikamente ---
+
+    fun addMedication(name: String, dosage: String) {
+        val meds = _uiState.value.regularMedications + MedicationEntry(name, dosage)
+        _uiState.update { it.copy(regularMedications = meds) }
+    }
+
+    fun removeMedication(index: Int) {
+        val meds = _uiState.value.regularMedications.toMutableList().apply { removeAt(index) }
+        _uiState.update { it.copy(regularMedications = meds) }
     }
 
     fun showClearDataDialog(show: Boolean) = _uiState.update { it.copy(showClearDataDialog = show) }
@@ -86,7 +141,8 @@ class SettingsViewModel @Inject constructor(
                     defaultSleepLatency = state.defaultSleepLatency,
                     appLockEnabled = state.appLockEnabled,
                     healthConnectEnabled = state.healthConnectEnabled,
-                    onboardingCompleted = true
+                    onboardingCompleted = true,
+                    regularMedications = state.regularMedications
                 )
             )
             _uiState.update { it.copy(successMessage = "Einstellungen gespeichert") }
@@ -165,6 +221,52 @@ class SettingsViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(successMessage = "Import fehlgeschlagen: ${e.message}")
                 }
+            }
+        }
+    }
+
+    // --- Google Drive Backup ---
+
+    fun setDriveAccount(email: String) {
+        _uiState.update { it.copy(driveAccountEmail = email) }
+    }
+
+    fun showPasswordDialog(mode: PasswordDialogMode) {
+        _uiState.update { it.copy(showPasswordDialog = true, passwordDialogMode = mode) }
+    }
+
+    fun dismissPasswordDialog() {
+        _uiState.update { it.copy(showPasswordDialog = false) }
+    }
+
+    fun uploadDriveBackup(password: String) {
+        val email = _uiState.value.driveAccountEmail ?: return
+        _uiState.update { it.copy(isDriveBackupRunning = true, showPasswordDialog = false) }
+        viewModelScope.launch {
+            val result = driveBackupManager.uploadBackup(email, password)
+            _uiState.update {
+                it.copy(
+                    isDriveBackupRunning = false,
+                    successMessage = result.getOrElse { e ->
+                        "Backup fehlgeschlagen: ${e.message}"
+                    }
+                )
+            }
+        }
+    }
+
+    fun restoreDriveBackup(password: String) {
+        val email = _uiState.value.driveAccountEmail ?: return
+        _uiState.update { it.copy(isDriveBackupRunning = true, showPasswordDialog = false) }
+        viewModelScope.launch {
+            val result = driveBackupManager.downloadAndRestoreBackup(email, password)
+            _uiState.update {
+                it.copy(
+                    isDriveBackupRunning = false,
+                    successMessage = result.getOrElse { e ->
+                        "Wiederherstellung fehlgeschlagen: ${e.message}"
+                    }
+                )
             }
         }
     }

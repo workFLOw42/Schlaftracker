@@ -24,7 +24,12 @@ object DatabaseModule {
             context,
             SchlafGutDatabase::class.java,
             "schlafgut.db"
-        ).build()
+        )
+            .addMigrations(
+                SchlafGutDatabase.MIGRATION_1_2,
+                SchlafGutDatabase.MIGRATION_2_3
+            )
+            .build()
 
     @Provides
     fun provideSleepEntryDao(db: SchlafGutDatabase): SleepEntryDao =

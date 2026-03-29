@@ -20,7 +20,7 @@ import de.schlafgut.app.ui.theme.qualityColor
 /**
  * Inline-Timeline eines einzelnen Schlafeintrags.
  * Zeigt: [Latenz(grau)][Schlaf(qualitätsfarbe)][Wachphasen(orange overlays)]
- * Neu: Aufgestanden-Phasen werden innerhalb der Wachphasen dunkler markiert.
+ * Aufgestanden-Phasen werden innerhalb der Wachphasen dunkler markiert.
  */
 @Composable
 fun SleepTimeline(
@@ -33,7 +33,7 @@ fun SleepTimeline(
 
     val qualColor = qualityColor(entry.quality)
     val cornerRadius = CornerRadius(6f, 6f)
-    val outOfBedColor = Color(0xFFD32F2F) // A darker/distinct red-orange for out of bed
+    val outOfBedColor = Color(0xFFD32F2F) // Dunkleres Rot-Orange für Aufgestanden
 
     Canvas(
         modifier = modifier
@@ -86,13 +86,13 @@ fun SleepTimeline(
                 size = Size(w.coerceAtLeast(2f), height)
             )
 
-            // Sub-segment: Out of bed
-            if (window.outOfBed && window.outOfBedStart != null && window.outOfBedEnd != null) {
-                val outStartMin = (window.outOfBedStart - entry.bedTime) / 60_000f
-                val outEndMin = (window.outOfBedEnd - entry.bedTime) / 60_000f
+            // Sub-segments: Out of bed periods
+            window.outOfBedPeriods.forEach { oob ->
+                val outStartMin = (oob.start - entry.bedTime) / 60_000f
+                val outEndMin = (oob.end - entry.bedTime) / 60_000f
                 val ox = (outStartMin / totalMinutes) * width
                 val ow = ((outEndMin - outStartMin) / totalMinutes) * width
-                
+
                 drawRect(
                     color = outOfBedColor,
                     topLeft = Offset(ox.coerceAtLeast(0f), height * 0.2f),

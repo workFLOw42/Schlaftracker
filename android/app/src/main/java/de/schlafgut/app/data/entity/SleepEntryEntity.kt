@@ -17,5 +17,12 @@ data class SleepEntryEntity(
     val interruptionCount: Int,          // = wakeWindows.size
     val quality: Int,                    // 1-10
     val tags: List<String>,             // JSON via TypeConverter
-    val notes: String
+    val notes: String,
+
+    // Substanzkonsum
+    val alcoholLevel: Int = 0,           // 0=nein, 1=wenig, 2=mittel, 3=viel
+    val drugLevel: Int = 0,              // 0=nein, 1=wenig, 2=mittel, 3=viel
+    val sleepAid: Boolean = false,       // Schlafmittel genommen?
+    val medication: Boolean = false,     // Medikamente genommen?
+    val medicationNotes: String = ""     // Welche Medikamente?
 )

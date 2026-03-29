@@ -3,6 +3,7 @@ package de.schlafgut.app.ui.statistics
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import de.schlafgut.app.data.entity.HealthSnapshotEntity
 import de.schlafgut.app.data.entity.SleepEntryEntity
 import de.schlafgut.app.data.repository.SleepRepository
 import de.schlafgut.app.util.DateTimeUtil
@@ -18,11 +19,31 @@ import javax.inject.Inject
 
 data class StatisticsUiState(
     val entries: List<SleepEntryEntity> = emptyList(),
+    val healthSnapshots: List<HealthSnapshotEntity> = emptyList(),
     val startDate: Long = DateTimeUtil.daysAgo(7),
     val endDate: Long = DateTimeUtil.todayEnd(),
+
+    // Nachtschlaf-Statistiken (ohne Nickerchen)
+    val nightCount: Int = 0,
     val averageQuality: Double = 0.0,
     val averageDurationMinutes: Double = 0.0,
-    val averageInterruptions: Double = 0.0
+    val averageInterruptions: Double = 0.0,
+
+    // Nickerchen-Statistiken
+    val napCount: Int = 0,
+    val averageNapDurationMinutes: Double = 0.0,
+
+    // Health-Statistiken
+    val averageWeight: Double? = null,
+    val averageRestingHr: Double? = null,
+    val averageSteps: Double? = null,
+
+    // Substanz-Statistiken
+    val entriesWithAlcohol: Int = 0,
+    val entriesWithDrugs: Int = 0,
+    val entriesWithSleepAid: Int = 0,
+    val avgQualityWithAlcohol: Double? = null,
+    val avgQualityWithoutAlcohol: Double? = null
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -36,18 +57,57 @@ class StatisticsViewModel @Inject constructor(
     )
 
     val uiState: StateFlow<StatisticsUiState> = _dateRange.flatMapLatest { (start, end) ->
-        repository.getEntriesInRange(start, end)
-    }.combine(_dateRange) { entries, (start, end) ->
+        combine(
+            repository.getEntriesInRange(start, end),
+            repository.getHealthSnapshotsInRange(start, end)
+        ) { entries, snapshots -> Triple(entries, snapshots, start to end) }
+    }.combine(_dateRange) { (entries, snapshots, _), (start, end) ->
+
+        val nights = entries.filter { !it.isNap }
+        val naps = entries.filter { it.isNap }
+
+        // Health-Durchschnitte
+        val weights = snapshots.mapNotNull { it.weightKg }
+        val restingHrs = snapshots.mapNotNull { it.restingHeartRate }
+        val steps = snapshots.mapNotNull { it.stepsTotal }
+
+        // Substanz-Auswertung (nur Nachtschlaf)
+        val nightsWithAlcohol = nights.filter { it.alcoholLevel > 0 }
+        val nightsWithoutAlcohol = nights.filter { it.alcoholLevel == 0 }
+
         StatisticsUiState(
             entries = entries,
+            healthSnapshots = snapshots,
             startDate = start,
             endDate = end,
-            averageQuality = if (entries.isEmpty()) 0.0
-            else entries.map { it.quality }.average(),
-            averageDurationMinutes = if (entries.isEmpty()) 0.0
-            else entries.map { it.sleepDurationMinutes }.average(),
-            averageInterruptions = if (entries.isEmpty()) 0.0
-            else entries.map { it.interruptionCount }.average()
+
+            // Nachtschlaf
+            nightCount = nights.size,
+            averageQuality = if (nights.isEmpty()) 0.0
+            else nights.map { it.quality }.average(),
+            averageDurationMinutes = if (nights.isEmpty()) 0.0
+            else nights.map { it.sleepDurationMinutes }.average(),
+            averageInterruptions = if (nights.isEmpty()) 0.0
+            else nights.map { it.interruptionCount }.average(),
+
+            // Nickerchen
+            napCount = naps.size,
+            averageNapDurationMinutes = if (naps.isEmpty()) 0.0
+            else naps.map { it.sleepDurationMinutes }.average(),
+
+            // Health
+            averageWeight = if (weights.isEmpty()) null else weights.average(),
+            averageRestingHr = if (restingHrs.isEmpty()) null else restingHrs.map { it.toDouble() }.average(),
+            averageSteps = if (steps.isEmpty()) null else steps.map { it.toDouble() }.average(),
+
+            // Substanzen (Nachtschlaf)
+            entriesWithAlcohol = nightsWithAlcohol.size,
+            entriesWithDrugs = nights.count { it.drugLevel > 0 },
+            entriesWithSleepAid = nights.count { it.sleepAid },
+            avgQualityWithAlcohol = if (nightsWithAlcohol.isEmpty()) null
+            else nightsWithAlcohol.map { it.quality }.average(),
+            avgQualityWithoutAlcohol = if (nightsWithoutAlcohol.isEmpty()) null
+            else nightsWithoutAlcohol.map { it.quality }.average()
         )
     }.stateIn(
         scope = viewModelScope,

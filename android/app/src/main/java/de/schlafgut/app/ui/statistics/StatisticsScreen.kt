@@ -56,168 +56,175 @@ fun StatisticsScreen(
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
 
-    // Date pickers
     if (showStartDatePicker) {
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = state.startDate
-        )
+        val pickerState = rememberDatePickerState(initialSelectedDateMillis = state.startDate)
         DatePickerDialog(
             onDismissRequest = { showStartDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
                     pickerState.selectedDateMillis?.let { millis ->
-                        val date = Instant.ofEpochMilli(millis)
-                            .atZone(ZoneOffset.UTC).toLocalDate()
-                        viewModel.setDateRange(
-                            DateTimeUtil.localDateToEpoch(date),
-                            state.endDate
-                        )
+                        val date = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                        viewModel.setDateRange(DateTimeUtil.localDateToEpoch(date), state.endDate)
                     }
                     showStartDatePicker = false
                 }) { Text("OK") }
             },
-            dismissButton = {
-                TextButton(onClick = { showStartDatePicker = false }) { Text("Abbrechen") }
-            }
+            dismissButton = { TextButton(onClick = { showStartDatePicker = false }) { Text("Abbrechen") } }
         ) { DatePicker(state = pickerState) }
     }
-
     if (showEndDatePicker) {
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = state.endDate
-        )
+        val pickerState = rememberDatePickerState(initialSelectedDateMillis = state.endDate)
         DatePickerDialog(
             onDismissRequest = { showEndDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
                     pickerState.selectedDateMillis?.let { millis ->
-                        val date = Instant.ofEpochMilli(millis)
-                            .atZone(ZoneOffset.UTC).toLocalDate()
-                        viewModel.setDateRange(
-                            state.startDate,
-                            DateTimeUtil.localDateToEpoch(date)
-                        )
+                        val date = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                        viewModel.setDateRange(state.startDate, DateTimeUtil.localDateToEpoch(date))
                     }
                     showEndDatePicker = false
                 }) { Text("OK") }
             },
-            dismissButton = {
-                TextButton(onClick = { showEndDatePicker = false }) { Text("Abbrechen") }
-            }
+            dismissButton = { TextButton(onClick = { showEndDatePicker = false }) { Text("Abbrechen") } }
         ) { DatePicker(state = pickerState) }
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "Statistik",
-            style = MaterialTheme.typography.headlineLarge
-        )
+        Text("Statistik", style = MaterialTheme.typography.headlineLarge)
 
-        // Date range filter
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        ) {
+        // Zeitraum
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Zeitraum", style = MaterialTheme.typography.labelLarge)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(onClick = { showStartDatePicker = true }) {
-                        Text(DateTimeUtil.formatDateShort(state.startDate))
-                    }
-                    Text(
-                        "\u2013",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                    OutlinedButton(onClick = { showEndDatePicker = true }) {
-                        Text(DateTimeUtil.formatDateShort(state.endDate))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = { showStartDatePicker = true }) { Text(DateTimeUtil.formatDateShort(state.startDate)) }
+                    Text("\u2013", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+                    OutlinedButton(onClick = { showEndDatePicker = true }) { Text(DateTimeUtil.formatDateShort(state.endDate)) }
+                }
+            }
+        }
+
+        // Nachtschlaf-Zusammenfassung
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("\uD83C\uDF19 Nachtschlaf", style = MaterialTheme.typography.titleMedium)
+                Text("${state.nightCount} N\u00e4chte im Zeitraum",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (state.nightCount > 0) {
+                    Text("\u00D8 Dauer: ${DateTimeUtil.formatDuration(state.averageDurationMinutes.toInt())}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("\u00D8 Qualit\u00e4t: ${String.format("%.1f", state.averageQuality)}/10",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("\u00D8 Unterbrechungen: ${String.format("%.1f", state.averageInterruptions)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
+        // Nickerchen-Zusammenfassung (nur wenn vorhanden)
+        if (state.napCount > 0) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("\u2600\uFE0F Nickerchen", style = MaterialTheme.typography.titleMedium)
+                    Text("${state.napCount} Nickerchen im Zeitraum",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("\u00D8 Dauer: ${DateTimeUtil.formatDuration(state.averageNapDurationMinutes.toInt())}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (state.nightCount > 0) {
+                        val freq = state.nightCount.toDouble() / state.napCount
+                        val freqText = if (freq <= 1.5) "T\u00e4glich" else "Alle ${String.format("%.0f", freq)} Tage"
+                        Text("H\u00e4ufigkeit: $freqText",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
         }
 
-        // Summary
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "${state.entries.size} Eintr\u00E4ge im Zeitraum",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = "\u00D8 Dauer: ${DateTimeUtil.formatDuration(state.averageDurationMinutes.toInt())}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "\u00D8 Qualit\u00E4t: ${String.format("%.1f", state.averageQuality)}/10",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "\u00D8 Unterbrechungen: ${String.format("%.1f", state.averageInterruptions)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        // Health-Daten
+        val hasHealth = state.averageWeight != null || state.averageRestingHr != null || state.averageSteps != null
+        if (hasHealth) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("\u2764\uFE0F Gesundheit im Zeitraum", style = MaterialTheme.typography.titleMedium)
+                    state.averageWeight?.let {
+                        Text("\u2696\uFE0F \u00D8 Gewicht: ${String.format("%.1f", it)} kg",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    state.averageRestingHr?.let {
+                        Text("\u2764\uFE0F \u00D8 Ruhepuls: ${String.format("%.0f", it)} bpm",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    state.averageSteps?.let {
+                        Text("\uD83D\uDC63 \u00D8 Schritte: ${String.format("%.0f", it)}",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+
+        // Substanzen
+        val hasSubstance = state.entriesWithAlcohol > 0 || state.entriesWithDrugs > 0 || state.entriesWithSleepAid > 0
+        if (hasSubstance) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("\uD83C\uDF77 Substanzen & Schlaf", style = MaterialTheme.typography.titleMedium)
+                    if (state.entriesWithAlcohol > 0) {
+                        Text("N\u00e4chte mit Alkohol: ${state.entriesWithAlcohol}",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val withAlc = state.avgQualityWithAlcohol
+                        val withoutAlc = state.avgQualityWithoutAlcohol
+                        if (withAlc != null && withoutAlc != null) {
+                            Text("\u00D8 Qualit\u00e4t mit Alkohol: ${String.format("%.1f", withAlc)} vs. ohne: ${String.format("%.1f", withoutAlc)}",
+                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    if (state.entriesWithDrugs > 0) {
+                        Text("N\u00e4chte mit Drogenkonsum: ${state.entriesWithDrugs}",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (state.entriesWithSleepAid > 0) {
+                        Text("N\u00e4chte mit Schlafmittel: ${state.entriesWithSleepAid}",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
         }
 
         // 24h Timeline
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        ) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    "24h-Timeline",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                Text("24h-Timeline", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
                 SleepTimeline24h(entries = state.entries)
             }
         }
 
-        // Charts
-        DurationChart(entries = state.entries)
-        QualityChart(entries = state.entries)
-        InterruptionsChart(entries = state.entries)
+        // Charts (nur Nachtschlaf)
+        val nights = state.entries.filter { !it.isNap }
+        DurationChart(entries = nights)
+        QualityChart(entries = nights)
+        InterruptionsChart(entries = nights)
 
-        // Export buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+        // Export
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(
                 onClick = {
                     val startStr = DateTimeUtil.formatDateShort(state.startDate)
                     val endStr = DateTimeUtil.formatDateShort(state.endDate)
-                    val uri = CsvExporter.export(
-                        context, state.entries,
-                        startDate = startStr, endDate = endStr
-                    )
+                    val uri = CsvExporter.export(context, state.entries, startDate = startStr, endDate = endStr)
                     if (uri != null) {
-                        context.startActivity(
-                            CsvExporter.createShareIntent(uri).let {
-                                Intent.createChooser(it, "CSV exportieren")
-                            }
-                        )
+                        context.startActivity(Intent.createChooser(CsvExporter.createShareIntent(uri), "CSV exportieren"))
                     } else {
-                        Toast.makeText(context, "Keine Daten zum Exportieren", Toast.LENGTH_SHORT)
-                            .show()
+                        Toast.makeText(context, "Keine Daten zum Exportieren", Toast.LENGTH_SHORT).show()
                     }
                 },
                 modifier = Modifier.weight(1f)
@@ -229,19 +236,11 @@ fun StatisticsScreen(
                 onClick = {
                     val startStr = DateTimeUtil.formatDateShort(state.startDate)
                     val endStr = DateTimeUtil.formatDateShort(state.endDate)
-                    val uri = PdfExporter.export(
-                        context, state.entries,
-                        startDate = startStr, endDate = endStr
-                    )
+                    val uri = PdfExporter.export(context, state.entries, startDate = startStr, endDate = endStr)
                     if (uri != null) {
-                        context.startActivity(
-                            PdfExporter.createShareIntent(uri).let {
-                                Intent.createChooser(it, "PDF exportieren")
-                            }
-                        )
+                        context.startActivity(Intent.createChooser(PdfExporter.createShareIntent(uri), "PDF exportieren"))
                     } else {
-                        Toast.makeText(context, "Keine Daten zum Exportieren", Toast.LENGTH_SHORT)
-                            .show()
+                        Toast.makeText(context, "Keine Daten zum Exportieren", Toast.LENGTH_SHORT).show()
                     }
                 },
                 modifier = Modifier.weight(1f)

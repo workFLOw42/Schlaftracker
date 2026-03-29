@@ -24,6 +24,9 @@ interface SleepEntryDao {
     @Query("SELECT * FROM sleep_entries ORDER BY bedTime DESC LIMIT :limit")
     fun getRecentEntries(limit: Int): Flow<List<SleepEntryEntity>>
 
+    @Query("SELECT * FROM sleep_entries ORDER BY bedTime DESC LIMIT :limit")
+    suspend fun getRecentEntriesOnce(limit: Int): List<SleepEntryEntity>
+
     @Query("SELECT COUNT(*) FROM sleep_entries")
     fun getEntryCount(): Flow<Int>
 

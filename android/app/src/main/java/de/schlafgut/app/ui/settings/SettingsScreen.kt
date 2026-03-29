@@ -1,5 +1,6 @@
 package de.schlafgut.app.ui.settings
 
+import android.app.Activity
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -12,9 +13,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
@@ -23,7 +30,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -34,16 +44,25 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.Scope
+import com.google.api.services.drive.DriveScopes
 import de.schlafgut.app.data.health.HealthConnectManager
 import de.schlafgut.app.ui.theme.DangerRed
 import de.schlafgut.app.ui.theme.DangerRedBg
 
+@Suppress("DEPRECATION")
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
@@ -51,14 +70,10 @@ fun SettingsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // File picker for JSON import
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        uri?.let { viewModel.importJson(context, it) }
-    }
+    ) { uri -> uri?.let { viewModel.importJson(context, it) } }
 
-    // Health Connect permission launcher
     val healthPermissionLauncher = rememberLauncherForActivityResult(
         viewModel.healthConnectPermissionContract
     ) { granted ->
@@ -70,12 +85,24 @@ fun SettingsScreen(
         }
     }
 
-    // Auto-clear success message
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            GoogleSignIn.getSignedInAccountFromIntent(result.data).result
+                ?.email?.let { viewModel.setDriveAccount(it) }
+        }
+    }
+
     LaunchedEffect(state.successMessage) {
         if (state.successMessage != null) {
             kotlinx.coroutines.delay(3000)
             viewModel.clearSuccessMessage()
         }
+    }
+
+    LaunchedEffect(Unit) {
+        GoogleSignIn.getLastSignedInAccount(context)?.email?.let { viewModel.setDriveAccount(it) }
     }
 
     Column(
@@ -85,36 +112,18 @@ fun SettingsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "Einstellungen",
-            style = MaterialTheme.typography.headlineLarge
-        )
+        Text("Einstellungen", style = MaterialTheme.typography.headlineLarge)
 
         // Success message
         state.successMessage?.let { msg ->
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            ) {
-                Text(
-                    text = msg,
-                    modifier = Modifier.padding(12.dp),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                Text(msg, modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.onPrimaryContainer)
             }
         }
 
-        // User settings
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+        // ====== Profil ======
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Profil", style = MaterialTheme.typography.titleMedium)
 
                 OutlinedTextField(
@@ -126,196 +135,271 @@ fun SettingsScreen(
                     singleLine = true
                 )
 
-                Text(
-                    text = "Standard-Einschlafzeit: ${state.defaultSleepLatency} min",
-                    style = MaterialTheme.typography.labelLarge
-                )
+                Text("Standard-Einschlafzeit: ${state.defaultSleepLatency} min", style = MaterialTheme.typography.labelLarge)
                 Slider(
                     value = state.defaultSleepLatency.toFloat(),
                     onValueChange = { viewModel.setDefaultLatency(it.toInt()) },
                     valueRange = 0f..120f,
                     steps = 23
                 )
-                Text(
-                    text = "Wird automatisch bei neuen Eintr\u00e4gen verwendet",
+                Text("Wird automatisch bei neuen Eintr\u00e4gen verwendet",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
-        // Security
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        ) {
+        // ====== Feste Medikamente ======
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("\uD83D\uDC8A Feste Medikamente", style = MaterialTheme.typography.titleMedium)
+                Text("Medikamente die du regelm\u00e4\u00dfig nimmst",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                state.regularMedications.forEachIndexed { index, med ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(med.name, style = MaterialTheme.typography.bodyMedium)
+                            if (med.dosage.isNotBlank()) {
+                                Text(med.dosage, style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        IconButton(onClick = { viewModel.removeMedication(index) }) {
+                            Icon(Icons.Default.Close, contentDescription = "Entfernen",
+                                tint = DangerRed, modifier = Modifier.size(20.dp))
+                        }
+                    }
+                    if (index < state.regularMedications.lastIndex) {
+                        HorizontalDivider()
+                    }
+                }
+
+                // Medikament hinzuf\u00fcgen
+                var newMedName by remember { mutableStateOf("") }
+                var newMedDosage by remember { mutableStateOf("") }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newMedName,
+                        onValueChange = { newMedName = it },
+                        label = { Text("Medikament") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = newMedDosage,
+                        onValueChange = { newMedDosage = it },
+                        label = { Text("Dosis") },
+                        modifier = Modifier.weight(0.6f),
+                        singleLine = true
+                    )
+                }
+                OutlinedButton(
+                    onClick = {
+                        if (newMedName.isNotBlank()) {
+                            viewModel.addMedication(newMedName.trim(), newMedDosage.trim())
+                            newMedName = ""
+                            newMedDosage = ""
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = newMedName.isNotBlank()
+                ) { Text("+ Medikament hinzuf\u00fcgen") }
+            }
+        }
+
+        // ====== Health Connect ======
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Health Connect", style = MaterialTheme.typography.titleMedium)
+
+                when (state.healthConnectAvailability) {
+                    HealthConnectManager.Availability.NOT_SUPPORTED -> {
+                        Text("Health Connect wird auf diesem Ger\u00e4t nicht unterst\u00fctzt",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    HealthConnectManager.Availability.NOT_INSTALLED -> {
+                        Text("Health Connect muss installiert werden",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedButton(onClick = {
+                            try { context.startActivity(viewModel.getHealthConnectInstallIntent()) }
+                            catch (e: Exception) { Toast.makeText(context, "Play Store nicht verf\u00fcgbar", Toast.LENGTH_SHORT).show() }
+                        }) { Text("Health Connect installieren") }
+                    }
+                    HealthConnectManager.Availability.AVAILABLE -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("K\u00f6rperdaten lesen", style = MaterialTheme.typography.labelLarge)
+                                Text("Gewicht, Puls, Schritte, SpO2",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(
+                                checked = state.healthConnectEnabled,
+                                onCheckedChange = { enabled ->
+                                    if (enabled) healthPermissionLauncher.launch(viewModel.healthConnectPermissions)
+                                    else viewModel.setHealthConnectEnabled(false)
+                                }
+                            )
+                        }
+
+                        // Health-Daten Profil-Anzeige
+                        val hasData = state.latestWeight != null || state.latestRestingHr != null ||
+                                state.latestSteps != null || state.latestSpO2 != null
+                        if (state.healthConnectEnabled && hasData) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                            Text("Letzte Messwerte", style = MaterialTheme.typography.labelLarge)
+                            state.latestWeight?.let {
+                                Text("\u2696\uFE0F Gewicht: ${String.format("%.1f", it)} kg",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            state.latestRestingHr?.let {
+                                Text("\u2764\uFE0F Ruhepuls: $it bpm",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            state.latestSteps?.let {
+                                Text("\uD83D\uDC63 Schritte: $it",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            state.latestSpO2?.let {
+                                Text("\uD83E\uDEC1 SpO\u2082: ${String.format("%.0f", it)}%",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ====== Sicherheit ======
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Sicherheit", style = MaterialTheme.typography.titleMedium)
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
                         Text("App-Schutz", style = MaterialTheme.typography.labelLarge)
-                        Text(
-                            text = "Fingerabdruck, PIN oder Muster",
+                        Text("Fingerabdruck, PIN oder Muster",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Switch(
-                        checked = state.appLockEnabled,
-                        onCheckedChange = { viewModel.setAppLockEnabled(it) }
-                    )
+                    Switch(checked = state.appLockEnabled, onCheckedChange = { viewModel.setAppLockEnabled(it) })
                 }
             }
         }
 
-        // Health Connect
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Health Connect", style = MaterialTheme.typography.titleMedium)
-
-                when (state.healthConnectAvailability) {
-                    HealthConnectManager.Availability.NOT_SUPPORTED -> {
-                        Text(
-                            text = "Health Connect wird auf diesem Ger\u00e4t nicht unterst\u00fctzt",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-                    HealthConnectManager.Availability.NOT_INSTALLED -> {
-                        Text(
-                            text = "Health Connect muss installiert werden",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                        OutlinedButton(
-                            onClick = {
-                                try {
-                                    context.startActivity(
-                                        viewModel.getHealthConnectInstallIntent()
-                                    )
-                                } catch (e: Exception) {
-                                    Toast.makeText(
-                                        context,
-                                        "Play Store nicht verf\u00fcgbar",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            },
-                            modifier = Modifier.padding(top = 8.dp)
-                        ) {
-                            Text("Health Connect installieren")
-                        }
-                    }
-                    HealthConnectManager.Availability.AVAILABLE -> {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "K\u00f6rperdaten lesen",
-                                    style = MaterialTheme.typography.labelLarge
-                                )
-                                Text(
-                                    text = "Gewicht, Puls, Schritte, SpO2 aus anderen Apps",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = state.healthConnectEnabled,
-                                onCheckedChange = { enabled ->
-                                    if (enabled) {
-                                        healthPermissionLauncher.launch(
-                                            viewModel.healthConnectPermissions
-                                        )
-                                    } else {
-                                        viewModel.setHealthConnectEnabled(false)
-                                    }
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Data management
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text("Daten", style = MaterialTheme.typography.titleMedium)
-
-                OutlinedButton(
-                    onClick = { viewModel.exportJson(context) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+        // ====== Lokales Backup ======
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Lokales Backup", style = MaterialTheme.typography.titleMedium)
+                OutlinedButton(onClick = { viewModel.exportJson(context) }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.FileDownload, contentDescription = null)
                     Text("  Backup exportieren (JSON)")
                 }
-
-                OutlinedButton(
-                    onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.FileUpload, contentDescription = null)
                     Text("  Backup importieren (JSON)")
                 }
             }
         }
 
-        // Save
-        Button(
-            onClick = { viewModel.saveSettings() },
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        // ====== Google Drive Backup ======
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Cloud, contentDescription = null,
+                        modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                    Text("  Google Drive Backup", style = MaterialTheme.typography.titleMedium)
+                }
+                Text("Passwort-verschl\u00fcsseltes Backup (AES-256, ger\u00e4te\u00fcbergreifend)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                if (state.driveAccountEmail.isNullOrBlank()) {
+                    OutlinedButton(
+                        onClick = {
+                            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                .requestEmail()
+                                .requestScopes(Scope(DriveScopes.DRIVE_APPDATA))
+                                .build()
+                            googleSignInLauncher.launch(GoogleSignIn.getClient(context, gso).signInIntent)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Mit Google anmelden") }
+                } else {
+                    Text("Angemeldet als: ${state.driveAccountEmail}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary)
+
+                    if (state.isDriveBackupRunning) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            Text("  Backup l\u00e4uft...", style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(start = 8.dp))
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { viewModel.showPasswordDialog(PasswordDialogMode.UPLOAD) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.CloudUpload, contentDescription = null)
+                            Text("  Backup erstellen")
+                        }
+                        OutlinedButton(
+                            onClick = { viewModel.showPasswordDialog(PasswordDialogMode.RESTORE) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.CloudDownload, contentDescription = null)
+                            Text("  Backup wiederherstellen")
+                        }
+                        TextButton(
+                            onClick = {
+                                val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                    .requestEmail().requestScopes(Scope(DriveScopes.DRIVE_APPDATA)).build()
+                                GoogleSignIn.getClient(context, gso).signOut()
+                                viewModel.setDriveAccount("")
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Abmelden") }
+                    }
+                }
+            }
+        }
+
+        // ====== Speichern ======
+        Button(onClick = { viewModel.saveSettings() }, modifier = Modifier.fillMaxWidth()) {
             Text("Einstellungen speichern")
         }
 
-        // Danger zone
-        Card(
-            colors = CardDefaults.cardColors(containerColor = DangerRedBg),
-            border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.3f))
-        ) {
+        // ====== Gefahrenzone ======
+        Card(colors = CardDefaults.cardColors(containerColor = DangerRedBg),
+            border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.3f))) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Gefahrenzone",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = DangerRed
-                )
-                Text(
-                    text = "Alle Schlafeintr\u00e4ge unwiderruflich l\u00f6schen",
+                Text("Gefahrenzone", style = MaterialTheme.typography.titleMedium, color = DangerRed)
+                Text("Alle Schlafeintr\u00e4ge unwiderruflich l\u00f6schen",
                     style = MaterialTheme.typography.bodySmall,
-                    color = DangerRed.copy(alpha = 0.7f),
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+                    color = DangerRed.copy(alpha = 0.7f), modifier = Modifier.padding(top = 4.dp))
                 OutlinedButton(
                     onClick = { viewModel.showClearDataDialog(true) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
                     border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.5f))
                 ) {
@@ -325,38 +409,99 @@ fun SettingsScreen(
             }
         }
 
-        // About
-        Text(
-            text = "SchlafGut v1.0.0",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp)
-        )
-
+        Text("SchlafGut v1.0.0", style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
         Spacer(modifier = Modifier.height(80.dp))
     }
 
-    // Clear data dialog
+    // ====== Dialoge ======
+
     if (state.showClearDataDialog) {
         AlertDialog(
             onDismissRequest = { viewModel.showClearDataDialog(false) },
             title = { Text("Alle Daten l\u00f6schen?") },
-            text = {
-                Text(
-                    "Alle Schlafeintr\u00e4ge werden unwiderruflich gel\u00f6scht. " +
-                        "Diese Aktion kann nicht r\u00fcckg\u00e4ngig gemacht werden."
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { viewModel.clearAllData() }) {
-                    Text("L\u00f6schen", color = DangerRed)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.showClearDataDialog(false) }) {
-                    Text("Abbrechen")
-                }
-            }
+            text = { Text("Alle Schlafeintr\u00e4ge werden unwiderruflich gel\u00f6scht.") },
+            confirmButton = { TextButton(onClick = { viewModel.clearAllData() }) { Text("L\u00f6schen", color = DangerRed) } },
+            dismissButton = { TextButton(onClick = { viewModel.showClearDataDialog(false) }) { Text("Abbrechen") } }
         )
     }
+
+    if (state.showPasswordDialog) {
+        BackupPasswordDialog(
+            mode = state.passwordDialogMode,
+            onConfirm = { password ->
+                when (state.passwordDialogMode) {
+                    PasswordDialogMode.UPLOAD -> viewModel.uploadDriveBackup(password)
+                    PasswordDialogMode.RESTORE -> viewModel.restoreDriveBackup(password)
+                }
+            },
+            onDismiss = { viewModel.dismissPasswordDialog() }
+        )
+    }
+}
+
+@Composable
+private fun BackupPasswordDialog(
+    mode: PasswordDialogMode,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    val isUpload = mode == PasswordDialogMode.UPLOAD
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(if (isUpload) "Backup-Passwort festlegen" else "Backup-Passwort eingeben")
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    if (isUpload)
+                        "Dieses Passwort wird ben\u00f6tigt, um das Backup auf einem anderen Ger\u00e4t wiederherzustellen."
+                    else
+                        "Gib das Passwort ein, mit dem das Backup erstellt wurde.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it; error = null },
+                    label = { Text("Passwort") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (isUpload) {
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = { confirmPassword = it; error = null },
+                        label = { Text("Passwort best\u00e4tigen") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                error?.let {
+                    Text(it, color = DangerRed, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                when {
+                    password.length < 6 -> error = "Mindestens 6 Zeichen"
+                    isUpload && password != confirmPassword -> error = "Passw\u00f6rter stimmen nicht \u00fcberein"
+                    else -> onConfirm(password)
+                }
+            }) {
+                Text(if (isUpload) "Backup erstellen" else "Wiederherstellen")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Abbrechen") }
+        }
+    )
 }

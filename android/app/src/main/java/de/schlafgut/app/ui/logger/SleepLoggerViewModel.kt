@@ -28,7 +28,14 @@ data class SleepLoggerUiState(
     val isEditing: Boolean = false,
     val editingId: String? = null,
     val errorMessage: String? = null,
-    val isSaved: Boolean = false
+    val isSaved: Boolean = false,
+
+    // Substanzkonsum
+    val alcoholLevel: Int = 0,       // 0=nein, 1=wenig, 2=mittel, 3=viel
+    val drugLevel: Int = 0,          // 0=nein, 1=wenig, 2=mittel, 3=viel
+    val sleepAid: Boolean = false,
+    val medication: Boolean = false,
+    val medicationNotes: String = ""
 )
 
 @HiltViewModel
@@ -64,7 +71,12 @@ class SleepLoggerViewModel @Inject constructor(
                 quality = entry.quality,
                 notes = entry.notes,
                 isEditing = true,
-                editingId = entry.id
+                editingId = entry.id,
+                alcoholLevel = entry.alcoholLevel,
+                drugLevel = entry.drugLevel,
+                sleepAid = entry.sleepAid,
+                medication = entry.medication,
+                medicationNotes = entry.medicationNotes
             )
         }
     }
@@ -98,17 +110,19 @@ class SleepLoggerViewModel @Inject constructor(
     fun setNotes(notes: String) = _uiState.update { it.copy(notes = notes) }
     fun clearError() = _uiState.update { it.copy(errorMessage = null) }
 
-    fun addWakeWindow(start: Long, end: Long, outOfBed: Boolean, outStart: Long?, outEnd: Long?) {
-        val window = WakeWindow(
-            start = start,
-            end = end,
-            outOfBed = outOfBed,
-            outOfBedStart = outStart,
-            outOfBedEnd = outEnd
-        )
+    // Substanzkonsum
+    fun setAlcoholLevel(level: Int) = _uiState.update { it.copy(alcoholLevel = level) }
+    fun setDrugLevel(level: Int) = _uiState.update { it.copy(drugLevel = level) }
+    fun setSleepAid(enabled: Boolean) = _uiState.update { it.copy(sleepAid = enabled) }
+    fun setMedication(enabled: Boolean) = _uiState.update {
+        it.copy(medication = enabled, medicationNotes = if (!enabled) "" else it.medicationNotes)
+    }
+    fun setMedicationNotes(notes: String) = _uiState.update { it.copy(medicationNotes = notes) }
+
+    fun addWakeWindow(wakeWindow: WakeWindow) {
         val state = _uiState.value
 
-        if (!SleepCalculator.validateWakeWindow(window, state.bedTime, state.wakeTime)) {
+        if (!SleepCalculator.validateWakeWindow(wakeWindow, state.bedTime, state.wakeTime)) {
             _uiState.update {
                 it.copy(errorMessage = "Die Wachphase muss innerhalb der Schlafzeit liegen.")
             }
@@ -116,7 +130,7 @@ class SleepLoggerViewModel @Inject constructor(
         }
 
         _uiState.update {
-            it.copy(wakeWindows = (it.wakeWindows + window).sortedBy { w -> w.start })
+            it.copy(wakeWindows = (it.wakeWindows + wakeWindow).sortedBy { w -> w.start })
         }
     }
 
@@ -183,7 +197,12 @@ class SleepLoggerViewModel @Inject constructor(
                 interruptionCount = state.wakeWindows.size,
                 quality = state.quality,
                 tags = emptyList(),
-                notes = state.notes
+                notes = state.notes,
+                alcoholLevel = state.alcoholLevel,
+                drugLevel = state.drugLevel,
+                sleepAid = state.sleepAid,
+                medication = state.medication,
+                medicationNotes = state.medicationNotes
             )
 
             repository.saveEntry(entry)

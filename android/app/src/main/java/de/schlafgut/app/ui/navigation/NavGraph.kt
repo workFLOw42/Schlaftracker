@@ -28,7 +28,7 @@ data class NavigationItem(
 )
 
 val navigationItems = listOf(
-    NavigationItem(Screen.Dashboard, "SchlafGut", Icons.Default.Home),
+    NavigationItem(Screen.Dashboard, "Startseite", Icons.Default.Home),
     NavigationItem(Screen.AllEntries, "Alle Einträge", Icons.Default.History),
     NavigationItem(Screen.Statistics, "Statistik", Icons.Default.BarChart),
     NavigationItem(Screen.Settings, "Einstellungen", Icons.Default.Settings)

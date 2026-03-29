@@ -25,6 +25,9 @@ class SleepRepository @Inject constructor(
     fun getRecentEntries(limit: Int = 5): Flow<List<SleepEntryEntity>> =
         sleepEntryDao.getRecentEntries(limit)
 
+    suspend fun getRecentEntriesOnce(limit: Int = 5): List<SleepEntryEntity> =
+        sleepEntryDao.getRecentEntriesOnce(limit)
+
     fun getEntriesInRange(startDate: Long, endDate: Long): Flow<List<SleepEntryEntity>> =
         sleepEntryDao.getEntriesInRange(startDate, endDate)
 
@@ -50,18 +53,20 @@ class SleepRepository @Inject constructor(
     ): List<SleepEntryEntity> =
         sleepEntryDao.findOverlappingEntries(bedTime, wakeTime, excludeId)
 
-    // --- Statistics helpers ---
+    // --- Statistics helpers (nur Nachtschlaf, keine Nickerchen) ---
 
     fun getAverageQuality(): Flow<Double?> =
         sleepEntryDao.getAllEntries().map { entries ->
-            if (entries.isEmpty()) null
-            else entries.map { it.quality }.average()
+            val nights = entries.filter { !it.isNap }
+            if (nights.isEmpty()) null
+            else nights.map { it.quality }.average()
         }
 
     fun getAverageDuration(): Flow<Double?> =
         sleepEntryDao.getAllEntries().map { entries ->
-            if (entries.isEmpty()) null
-            else entries.map { it.sleepDurationMinutes }.average()
+            val nights = entries.filter { !it.isNap }
+            if (nights.isEmpty()) null
+            else nights.map { it.sleepDurationMinutes }.average()
         }
 
     // --- Settings ---

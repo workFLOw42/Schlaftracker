@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,17 +34,17 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -51,8 +52,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dagger.hilt.android.AndroidEntryPoint
-import de.schlafgut.app.data.entity.UserSettingsEntity
-import de.schlafgut.app.data.repository.SleepRepository
+import de.schlafgut.app.ui.RootViewModel
 import de.schlafgut.app.ui.allentries.AllEntriesScreen
 import de.schlafgut.app.ui.dashboard.DashboardScreen
 import de.schlafgut.app.ui.logger.SleepLoggerScreen
@@ -65,13 +65,9 @@ import de.schlafgut.app.ui.theme.SchlafGutTheme
 import de.schlafgut.app.ui.theme.TextSecondary
 import de.schlafgut.app.util.BiometricHelper
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
-
-    @Inject
-    lateinit var repository: SleepRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -83,7 +79,7 @@ class MainActivity : FragmentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    SchlafGutRoot(repository = repository, activity = this)
+                    SchlafGutRoot()
                 }
             }
         }
@@ -92,32 +88,23 @@ class MainActivity : FragmentActivity() {
 
 @Composable
 fun SchlafGutRoot(
-    repository: SleepRepository,
-    activity: FragmentActivity
+    viewModel: RootViewModel = hiltViewModel()
 ) {
-    val scope = rememberCoroutineScope()
-    var isLoading by remember { mutableStateOf(true) }
-    var needsOnboarding by remember { mutableStateOf(false) }
-    var isLocked by remember { mutableStateOf(false) }
-    var authError by remember { mutableStateOf<String?>(null) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val activity = LocalContext.current as FragmentActivity
 
-    LaunchedEffect(Unit) {
-        val settings = repository.getSettingsOnce()
-        needsOnboarding = !settings.onboardingCompleted
-        isLocked = settings.appLockEnabled
-        isLoading = false
-
-        if (isLocked) {
+    LaunchedEffect(uiState.isLocked) {
+        if (uiState.isLocked) {
             BiometricHelper.authenticate(
                 activity = activity,
-                onSuccess = { isLocked = false },
-                onError = { authError = it }
+                onSuccess = { viewModel.onAuthSuccess() },
+                onError = { viewModel.onAuthError(it) }
             )
         }
     }
 
     when {
-        isLoading -> {
+        uiState.isLoading -> {
             Box(
                 modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
                 contentAlignment = Alignment.Center
@@ -125,31 +112,22 @@ fun SchlafGutRoot(
                 Text("\uD83C\uDF19", style = MaterialTheme.typography.headlineLarge)
             }
         }
-        isLocked -> {
+        uiState.isLocked -> {
             Box(
                 modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = authError ?: "Bitte entsperre die App",
+                    text = uiState.authError ?: "Bitte entsperre die App",
                     style = MaterialTheme.typography.bodyLarge,
                     color = TextSecondary
                 )
             }
         }
-        needsOnboarding -> {
+        uiState.needsOnboarding -> {
             OnboardingScreen(
                 onComplete = { name, latency ->
-                    scope.launch {
-                        repository.saveSettings(
-                            UserSettingsEntity(
-                                userName = name,
-                                defaultSleepLatency = latency,
-                                onboardingCompleted = true
-                            )
-                        )
-                        needsOnboarding = false
-                    }
+                    viewModel.completeOnboarding(name, latency)
                 }
             )
         }
@@ -181,8 +159,17 @@ fun SchlafGutAppContent() {
         drawerContent = {
             ModalDrawerSheet {
                 Spacer(modifier = Modifier.height(16.dp))
+                // Header – klickbar, navigiert zum Dashboard
                 Row(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .clickable {
+                            scope.launch { drawerState.close() }
+                            navController.navigate(Screen.Dashboard.route) {
+                                popUpTo(Screen.Dashboard.route) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -219,7 +206,6 @@ fun SchlafGutAppContent() {
     ) {
         Scaffold(
             topBar = {
-                // Dashboard has its own TopAppBar now to show the name
                 if (showNav && currentRoute != Screen.Dashboard.route && currentRoute != Screen.AllEntries.route) {
                     TopAppBar(
                         title = {
