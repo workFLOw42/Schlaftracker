@@ -10,6 +10,7 @@ import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import de.schlafgut.app.data.entity.HealthSnapshotEntity
+import de.schlafgut.app.data.entity.UserSettingsEntity
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,18 +22,13 @@ class HealthDataRepository @Inject constructor(
 
     /**
      * Liest Health-Daten für einen Schlafzeitraum und erstellt einen Snapshot.
-     * Liest:
-     * - Gewicht: letzter Wert des Tages vor dem Schlaf
-     * - Körpertemperatur: letzter Wert
-     * - Ruhepuls: Wert des Tages
-     * - Herzfrequenz: Durchschnitt während der Schlafzeit
-     * - SpO2: letzter Wert
-     * - Schritte: Summe des Tages
+     * Respektiert die individuelle Datentyp-Auswahl aus den Settings.
      */
     suspend fun fetchHealthSnapshot(
         sleepEntryId: String,
         bedTimeEpoch: Long,
-        wakeTimeEpoch: Long
+        wakeTimeEpoch: Long,
+        settings: UserSettingsEntity = UserSettingsEntity()
     ): HealthSnapshotEntity? {
         val client = healthConnectManager.getClient() ?: return null
 
@@ -40,18 +36,18 @@ class HealthDataRepository @Inject constructor(
         val wakeInstant = Instant.ofEpochMilli(wakeTimeEpoch)
 
         // Day range: from start of bed day to end of wake day
-        val dayStart = bedInstant.minusSeconds(12 * 3600) // ~12h before bed
-        val dayEnd = wakeInstant.plusSeconds(6 * 3600) // ~6h after wake
+        val dayStart = bedInstant.minusSeconds(12 * 3600)
+        val dayEnd = wakeInstant.plusSeconds(6 * 3600)
 
         val sleepRange = TimeRangeFilter.between(bedInstant, wakeInstant)
         val dayRange = TimeRangeFilter.between(dayStart, dayEnd)
 
-        val weight = readLastWeight(client, dayRange)
-        val bodyTemp = readLastBodyTemp(client, dayRange)
-        val restingHr = readRestingHeartRate(client, dayRange)
-        val avgNightHr = readAverageHeartRate(client, sleepRange)
-        val spo2 = readLastOxygenSaturation(client, sleepRange)
-        val steps = readTotalSteps(client, dayRange)
+        val weight = if (settings.healthReadWeight) readLastWeight(client, dayRange) else null
+        val bodyTemp = if (settings.healthReadBodyTemp) readLastBodyTemp(client, dayRange) else null
+        val restingHr = if (settings.healthReadRestingHr) readRestingHeartRate(client, dayRange) else null
+        val avgNightHr = if (settings.healthReadHeartRate) readAverageHeartRate(client, sleepRange) else null
+        val spo2 = if (settings.healthReadSpO2) readLastOxygenSaturation(client, sleepRange) else null
+        val steps = if (settings.healthReadSteps) readTotalSteps(client, dayRange) else null
 
         // Only create snapshot if at least one value is present
         if (weight == null && bodyTemp == null && restingHr == null &&
@@ -139,7 +135,7 @@ class HealthDataRepository @Inject constructor(
         return try {
             block()
         } catch (e: Exception) {
-            null // Permission denied or HC unavailable
+            null
         }
     }
 }

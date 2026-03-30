@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 3,
-    "identityHash": "7dfb79998cd8d5672374a44197292771",
+    "identityHash": "4bbee3cb3aa8eca81531c3ced0f30ae1",
     "entities": [
       {
         "tableName": "sleep_entries",
@@ -122,13 +122,11 @@
           "columnNames": [
             "id"
           ]
-        },
-        "indices": [],
-        "foreignKeys": []
+        }
       },
       {
         "tableName": "user_settings",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `userName` TEXT NOT NULL, `defaultSleepLatency` INTEGER NOT NULL, `appLockEnabled` INTEGER NOT NULL, `healthConnectEnabled` INTEGER NOT NULL, `onboardingCompleted` INTEGER NOT NULL, `regularMedications` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `userName` TEXT NOT NULL, `defaultSleepLatency` INTEGER NOT NULL, `appLockEnabled` INTEGER NOT NULL, `healthConnectEnabled` INTEGER NOT NULL, `onboardingCompleted` INTEGER NOT NULL, `regularMedications` TEXT NOT NULL, `healthReadWeight` INTEGER NOT NULL, `healthReadBodyTemp` INTEGER NOT NULL, `healthReadRestingHr` INTEGER NOT NULL, `healthReadHeartRate` INTEGER NOT NULL, `healthReadSpO2` INTEGER NOT NULL, `healthReadSteps` INTEGER NOT NULL, `healthReadSleep` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -171,6 +169,48 @@
             "columnName": "regularMedications",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "healthReadWeight",
+            "columnName": "healthReadWeight",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "healthReadBodyTemp",
+            "columnName": "healthReadBodyTemp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "healthReadRestingHr",
+            "columnName": "healthReadRestingHr",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "healthReadHeartRate",
+            "columnName": "healthReadHeartRate",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "healthReadSpO2",
+            "columnName": "healthReadSpO2",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "healthReadSteps",
+            "columnName": "healthReadSteps",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "healthReadSleep",
+            "columnName": "healthReadSleep",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -178,9 +218,7 @@
           "columnNames": [
             "id"
           ]
-        },
-        "indices": [],
-        "foreignKeys": []
+        }
       },
       {
         "tableName": "health_snapshots",
@@ -195,50 +233,42 @@
           {
             "fieldPath": "weightKg",
             "columnName": "weightKg",
-            "affinity": "REAL",
-            "notNull": false
+            "affinity": "REAL"
           },
           {
             "fieldPath": "bodyTempCelsius",
             "columnName": "bodyTempCelsius",
-            "affinity": "REAL",
-            "notNull": false
+            "affinity": "REAL"
           },
           {
             "fieldPath": "skinTempDeltaCelsius",
             "columnName": "skinTempDeltaCelsius",
-            "affinity": "REAL",
-            "notNull": false
+            "affinity": "REAL"
           },
           {
             "fieldPath": "restingHeartRate",
             "columnName": "restingHeartRate",
-            "affinity": "INTEGER",
-            "notNull": false
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "avgNightHeartRate",
             "columnName": "avgNightHeartRate",
-            "affinity": "INTEGER",
-            "notNull": false
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "oxygenSaturation",
             "columnName": "oxygenSaturation",
-            "affinity": "REAL",
-            "notNull": false
+            "affinity": "REAL"
           },
           {
             "fieldPath": "stepsTotal",
             "columnName": "stepsTotal",
-            "affinity": "INTEGER",
-            "notNull": false
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "sleepFromDevice",
             "columnName": "sleepFromDevice",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "fetchedAt",
@@ -253,7 +283,6 @@
             "sleepEntryId"
           ]
         },
-        "indices": [],
         "foreignKeys": [
           {
             "table": "sleep_entries",
@@ -269,10 +298,9 @@
         ]
       }
     ],
-    "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '7dfb79998cd8d5672374a44197292771')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '4bbee3cb3aa8eca81531c3ced0f30ae1')"
     ]
   }
 }

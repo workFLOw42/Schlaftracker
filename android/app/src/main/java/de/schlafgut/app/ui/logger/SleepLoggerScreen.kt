@@ -26,6 +26,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -273,6 +274,24 @@ fun SleepLoggerScreen(
                             onValueChange = { viewModel.setMedicationNotes(it) },
                             label = { Text("Welche Medikamente?") },
                             modifier = Modifier.fillMaxWidth(), singleLine = false, minLines = 2)
+                    }
+
+                    // Reguläre Medikamente aus den Einstellungen anzeigen
+                    if (state.regularMedications.isNotEmpty()) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        Text("Feste Medikamente (aus Einstellungen)",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        state.regularMedications.forEach { med ->
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                Text("\uD83D\uDC8A ${med.name}", style = MaterialTheme.typography.bodyMedium)
+                                if (med.dosage.isNotBlank()) {
+                                    Text(" – ${med.dosage}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
                     }
                 }
             }

@@ -29,15 +29,11 @@ data class HealthDataSummary(
                 oxygenSaturation != null || stepsTotal != null || bodyTempCelsius != null
 }
 
-/**
- * Nickerchen-Zusammenfassung.
- */
 data class NapSummary(
     val totalNaps: Int = 0,
     val totalNights: Int = 0,
     val averageNapDurationMinutes: Double? = null
 ) {
-    /** z.B. "Alle 3 Tage" oder null wenn keine Naps */
     val frequencyText: String?
         get() {
             if (totalNaps == 0 || totalNights == 0) return null
@@ -50,8 +46,8 @@ data class NapSummary(
 data class DashboardUiState(
     val recentEntries: List<SleepEntryEntity> = emptyList(),
     val totalEntries: Int = 0,
-    val averageQuality: Double? = null,          // nur Nachtschlaf
-    val averageDurationMinutes: Double? = null,  // nur Nachtschlaf
+    val averageQuality: Double? = null,
+    val averageDurationMinutes: Double? = null,
     val lastNightDurationMinutes: Int? = null,
     val healthData: HealthDataSummary? = null,
     val userName: String? = null,
@@ -72,9 +68,9 @@ class DashboardViewModel @Inject constructor(
 
     val uiState: StateFlow<DashboardUiState> = combine(
         repository.getRecentEntries(5),
-        repository.getAllEntries(),        // für Nap-Statistik
-        repository.getAverageQuality(),    // filtert bereits nach !isNap
-        repository.getAverageDuration(),   // filtert bereits nach !isNap
+        repository.getAllEntries(),
+        repository.getAverageQuality(),
+        repository.getAverageDuration(),
         combine(
             _healthData,
             repository.getSettings().map { it?.userName }
@@ -125,7 +121,8 @@ class DashboardViewModel @Inject constructor(
                 val fresh = healthDataRepository.fetchHealthSnapshot(
                     sleepEntryId = lastEntry.id,
                     bedTimeEpoch = lastEntry.bedTime,
-                    wakeTimeEpoch = lastEntry.wakeTime
+                    wakeTimeEpoch = lastEntry.wakeTime,
+                    settings = settings
                 )
                 if (fresh != null) {
                     repository.saveHealthSnapshot(fresh)

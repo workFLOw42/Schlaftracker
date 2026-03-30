@@ -21,5 +21,14 @@ data class UserSettingsEntity(
     val appLockEnabled: Boolean = false,
     val healthConnectEnabled: Boolean = false,
     val onboardingCompleted: Boolean = false,
-    val regularMedications: List<MedicationEntry> = emptyList()  // Feste Medikamente
+    val regularMedications: List<MedicationEntry> = emptyList(),
+
+    // Individuelle Health-Datentyp-Auswahl
+    val healthReadWeight: Boolean = true,
+    val healthReadBodyTemp: Boolean = true,
+    val healthReadRestingHr: Boolean = true,
+    val healthReadHeartRate: Boolean = true,
+    val healthReadSpO2: Boolean = true,
+    val healthReadSteps: Boolean = true,
+    val healthReadSleep: Boolean = true
 )

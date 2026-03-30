@@ -38,6 +38,15 @@ data class SettingsUiState(
     val latestSteps: Int? = null,
     val latestSpO2: Double? = null,
 
+    // Individuelle Health-Datentyp-Auswahl
+    val healthReadWeight: Boolean = true,
+    val healthReadBodyTemp: Boolean = true,
+    val healthReadRestingHr: Boolean = true,
+    val healthReadHeartRate: Boolean = true,
+    val healthReadSpO2: Boolean = true,
+    val healthReadSteps: Boolean = true,
+    val healthReadSleep: Boolean = true,
+
     // Google Drive Backup
     val driveAccountEmail: String? = null,
     val isDriveBackupRunning: Boolean = false,
@@ -72,7 +81,14 @@ class SettingsViewModel @Inject constructor(
                         appLockEnabled = s.appLockEnabled,
                         healthConnectEnabled = s.healthConnectEnabled,
                         onboardingCompleted = s.onboardingCompleted,
-                        regularMedications = s.regularMedications
+                        regularMedications = s.regularMedications,
+                        healthReadWeight = s.healthReadWeight,
+                        healthReadBodyTemp = s.healthReadBodyTemp,
+                        healthReadRestingHr = s.healthReadRestingHr,
+                        healthReadHeartRate = s.healthReadHeartRate,
+                        healthReadSpO2 = s.healthReadSpO2,
+                        healthReadSteps = s.healthReadSteps,
+                        healthReadSleep = s.healthReadSleep
                     )
                 }
             }
@@ -100,65 +116,79 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    private fun currentSettingsFromState(): UserSettingsEntity {
+        val state = _uiState.value
+        return UserSettingsEntity(
+            userName = state.userName,
+            defaultSleepLatency = state.defaultSleepLatency,
+            appLockEnabled = state.appLockEnabled,
+            healthConnectEnabled = state.healthConnectEnabled,
+            onboardingCompleted = true,
+            regularMedications = state.regularMedications,
+            healthReadWeight = state.healthReadWeight,
+            healthReadBodyTemp = state.healthReadBodyTemp,
+            healthReadRestingHr = state.healthReadRestingHr,
+            healthReadHeartRate = state.healthReadHeartRate,
+            healthReadSpO2 = state.healthReadSpO2,
+            healthReadSteps = state.healthReadSteps,
+            healthReadSleep = state.healthReadSleep
+        )
+    }
+
     fun setUserName(name: String) = _uiState.update { it.copy(userName = name) }
     fun setDefaultLatency(minutes: Int) = _uiState.update { it.copy(defaultSleepLatency = minutes) }
 
     fun setAppLockEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            val currentSettings = repository.getSettingsOnce()
-            repository.saveSettings(currentSettings.copy(appLockEnabled = enabled))
-        }
+        _uiState.update { it.copy(appLockEnabled = enabled) }
+        persistSettings()
     }
 
     fun setHealthConnectEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            val currentSettings = repository.getSettingsOnce()
-            repository.saveSettings(currentSettings.copy(healthConnectEnabled = enabled))
-            if (enabled) loadHealthProfileData()
-        }
+        _uiState.update { it.copy(healthConnectEnabled = enabled) }
+        persistSettings()
+        if (enabled) loadHealthProfileData()
     }
 
-    // --- Feste Medikamente ---
+    // --- Individuelle Health-Datentyp-Toggles ---
+    fun setHealthReadWeight(v: Boolean) { _uiState.update { it.copy(healthReadWeight = v) }; persistSettings() }
+    fun setHealthReadBodyTemp(v: Boolean) { _uiState.update { it.copy(healthReadBodyTemp = v) }; persistSettings() }
+    fun setHealthReadRestingHr(v: Boolean) { _uiState.update { it.copy(healthReadRestingHr = v) }; persistSettings() }
+    fun setHealthReadHeartRate(v: Boolean) { _uiState.update { it.copy(healthReadHeartRate = v) }; persistSettings() }
+    fun setHealthReadSpO2(v: Boolean) { _uiState.update { it.copy(healthReadSpO2 = v) }; persistSettings() }
+    fun setHealthReadSteps(v: Boolean) { _uiState.update { it.copy(healthReadSteps = v) }; persistSettings() }
+    fun setHealthReadSleep(v: Boolean) { _uiState.update { it.copy(healthReadSleep = v) }; persistSettings() }
 
+    // --- Feste Medikamente ---
     fun addMedication(name: String, dosage: String) {
         val meds = _uiState.value.regularMedications + MedicationEntry(name, dosage)
         _uiState.update { it.copy(regularMedications = meds) }
+        persistSettings()
     }
 
     fun removeMedication(index: Int) {
         val meds = _uiState.value.regularMedications.toMutableList().apply { removeAt(index) }
         _uiState.update { it.copy(regularMedications = meds) }
+        persistSettings()
     }
 
     fun showClearDataDialog(show: Boolean) = _uiState.update { it.copy(showClearDataDialog = show) }
     fun clearSuccessMessage() = _uiState.update { it.copy(successMessage = null) }
 
     fun saveSettings() {
+        _uiState.update { it.copy(successMessage = "Einstellungen gespeichert") }
+        persistSettings()
+    }
+
+    private fun persistSettings() {
         viewModelScope.launch {
-            val state = _uiState.value
-            repository.saveSettings(
-                UserSettingsEntity(
-                    userName = state.userName,
-                    defaultSleepLatency = state.defaultSleepLatency,
-                    appLockEnabled = state.appLockEnabled,
-                    healthConnectEnabled = state.healthConnectEnabled,
-                    onboardingCompleted = true,
-                    regularMedications = state.regularMedications
-                )
-            )
-            _uiState.update { it.copy(successMessage = "Einstellungen gespeichert") }
+            repository.saveSettings(currentSettingsFromState())
         }
     }
 
     fun clearAllData() {
         viewModelScope.launch {
             repository.deleteAllEntries()
-            _uiState.update {
-                it.copy(
-                    showClearDataDialog = false,
-                    successMessage = "Alle Daten gelöscht"
-                )
-            }
+            _uiState.update { it.copy(showClearDataDialog = false, successMessage = "Alle Daten gelöscht") }
         }
     }
 
@@ -183,82 +213,37 @@ class SettingsViewModel @Inject constructor(
                 val inputStream = context.contentResolver.openInputStream(uri)
                 val jsonString = inputStream?.bufferedReader()?.readText() ?: return@launch
                 inputStream.close()
-
                 val result = JsonImportExport.importFromJson(jsonString)
-                var imported = 0
-                var skipped = 0
-
+                var imported = 0; var skipped = 0
                 for (entry in result.entries) {
-                    val existing = repository.getEntryById(entry.id)
-                    if (existing == null) {
-                        repository.saveEntry(entry)
-                        imported++
-                    } else {
-                        skipped++
-                    }
+                    if (repository.getEntryById(entry.id) == null) { repository.saveEntry(entry); imported++ } else { skipped++ }
                 }
-
-                result.settings?.let { settings ->
+                result.settings?.let { s ->
                     val current = repository.getSettingsOnce()
-                    if (current.userName.isBlank() && settings.userName.isNotBlank()) {
-                        repository.saveSettings(
-                            current.copy(
-                                userName = settings.userName,
-                                defaultSleepLatency = settings.defaultSleepLatency
-                            )
-                        )
+                    if (current.userName.isBlank() && s.userName.isNotBlank()) {
+                        repository.saveSettings(current.copy(userName = s.userName, defaultSleepLatency = s.defaultSleepLatency))
                     }
                 }
-
-                _uiState.update {
-                    it.copy(
-                        successMessage = "$imported Einträge importiert" +
-                            if (skipped > 0) ", $skipped übersprungen (Duplikate)" else ""
-                    )
-                }
+                _uiState.update { it.copy(successMessage = "$imported Einträge importiert" + if (skipped > 0) ", $skipped übersprungen (Duplikate)" else "") }
             } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(successMessage = "Import fehlgeschlagen: ${e.message}")
-                }
+                _uiState.update { it.copy(successMessage = "Import fehlgeschlagen: ${e.message}") }
             }
         }
     }
 
     // --- Google Drive Backup ---
-
-    fun setDriveAccount(email: String) {
-        _uiState.update { it.copy(driveAccountEmail = email, signInError = null) }
-    }
-
-    fun setSignInError(message: String) {
-        _uiState.update { it.copy(signInError = message) }
-    }
-
-    fun clearSignInError() {
-        _uiState.update { it.copy(signInError = null) }
-    }
-
-    fun showPasswordDialog(mode: PasswordDialogMode) {
-        _uiState.update { it.copy(showPasswordDialog = true, passwordDialogMode = mode) }
-    }
-
-    fun dismissPasswordDialog() {
-        _uiState.update { it.copy(showPasswordDialog = false) }
-    }
+    fun setDriveAccount(email: String) { _uiState.update { it.copy(driveAccountEmail = email, signInError = null) } }
+    fun setSignInError(message: String) { _uiState.update { it.copy(signInError = message) } }
+    fun clearSignInError() { _uiState.update { it.copy(signInError = null) } }
+    fun showPasswordDialog(mode: PasswordDialogMode) { _uiState.update { it.copy(showPasswordDialog = true, passwordDialogMode = mode) } }
+    fun dismissPasswordDialog() { _uiState.update { it.copy(showPasswordDialog = false) } }
 
     fun uploadDriveBackup(password: String) {
         val email = _uiState.value.driveAccountEmail ?: return
         _uiState.update { it.copy(isDriveBackupRunning = true, showPasswordDialog = false) }
         viewModelScope.launch {
             val result = driveBackupManager.uploadBackup(email, password)
-            _uiState.update {
-                it.copy(
-                    isDriveBackupRunning = false,
-                    successMessage = result.getOrElse { e ->
-                        "Backup fehlgeschlagen: ${e.message}"
-                    }
-                )
-            }
+            _uiState.update { it.copy(isDriveBackupRunning = false, successMessage = result.getOrElse { e -> "Backup fehlgeschlagen: ${e.message}" }) }
         }
     }
 
@@ -267,19 +252,11 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(isDriveBackupRunning = true, showPasswordDialog = false) }
         viewModelScope.launch {
             val result = driveBackupManager.downloadAndRestoreBackup(email, password)
-            _uiState.update {
-                it.copy(
-                    isDriveBackupRunning = false,
-                    successMessage = result.getOrElse { e ->
-                        "Wiederherstellung fehlgeschlagen: ${e.message}"
-                    }
-                )
-            }
+            _uiState.update { it.copy(isDriveBackupRunning = false, successMessage = result.getOrElse { e -> "Wiederherstellung fehlgeschlagen: ${e.message}" }) }
         }
     }
 
     fun getHealthConnectInstallIntent(): Intent = healthConnectManager.getInstallIntent()
-
     val healthConnectPermissions get() = healthConnectManager.permissions
     val healthConnectPermissionContract get() = healthConnectManager.requestPermissionContract
 }
