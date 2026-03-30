@@ -2,4 +2,4 @@
 
 Die Datenschutzerklärung für SchlafGut findest du hier:
 
-👉 [Datenschutzerklärung (HTML)](https://workFLOw42.github.io/Schlaftracker/privacy-policy.html)
+👉 [Datenschutzerklärung (HTML)](https://workflow42.github.io/Schlaftracker/docs/privacy-policy.html)

@@ -1,6 +1,7 @@
 package de.schlafgut.app.ui.settings
 
 import android.app.Activity
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -56,11 +57,14 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
 import com.google.api.services.drive.DriveScopes
 import de.schlafgut.app.data.health.HealthConnectManager
 import de.schlafgut.app.ui.theme.DangerRed
 import de.schlafgut.app.ui.theme.DangerRedBg
+
+private const val TAG = "SettingsScreen"
 
 @Suppress("DEPRECATION")
 @Composable
@@ -85,12 +89,38 @@ fun SettingsScreen(
         }
     }
 
+    val gso = remember {
+        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()
+            .requestScopes(Scope(DriveScopes.DRIVE_APPDATA))
+            .build()
+    }
+
     val googleSignInLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            GoogleSignIn.getSignedInAccountFromIntent(result.data).result
-                ?.email?.let { viewModel.setDriveAccount(it) }
+        try {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            val account = task.getResult(ApiException::class.java)
+            val email = account?.email
+            if (email != null) {
+                viewModel.setDriveAccount(email)
+            } else {
+                Log.w(TAG, "Google Sign-In: kein Email im Account")
+                viewModel.setSignInError("Anmeldung fehlgeschlagen: Kein Email-Konto gefunden")
+            }
+        } catch (e: ApiException) {
+            Log.e(TAG, "Google Sign-In fehlgeschlagen: statusCode=${e.statusCode}", e)
+            val msg = when (e.statusCode) {
+                12501 -> "Anmeldung abgebrochen"
+                12502 -> "Anmeldung wird bereits durchgeführt"
+                10 -> "App ist nicht korrekt in der Google Cloud Console konfiguriert (Developer Error)"
+                else -> "Anmeldung fehlgeschlagen (Code: ${e.statusCode})"
+            }
+            viewModel.setSignInError(msg)
+        } catch (e: Exception) {
+            Log.e(TAG, "Google Sign-In unbekannter Fehler", e)
+            viewModel.setSignInError("Anmeldung fehlgeschlagen: ${e.message}")
         }
     }
 
@@ -332,14 +362,23 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
 
+                // Fehler-Anzeige
+                state.signInError?.let { error ->
+                    Card(colors = CardDefaults.cardColors(containerColor = DangerRedBg)) {
+                        Text(error, color = DangerRed, style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(12.dp))
+                    }
+                }
+
                 if (state.driveAccountEmail.isNullOrBlank()) {
                     OutlinedButton(
                         onClick = {
-                            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                                .requestEmail()
-                                .requestScopes(Scope(DriveScopes.DRIVE_APPDATA))
-                                .build()
-                            googleSignInLauncher.launch(GoogleSignIn.getClient(context, gso).signInIntent)
+                            viewModel.clearSignInError()
+                            // Erst abmelden um sicherzustellen, dass der Account-Chooser erscheint
+                            val client = GoogleSignIn.getClient(context, gso)
+                            client.signOut().addOnCompleteListener {
+                                googleSignInLauncher.launch(client.signInIntent)
+                            }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("Mit Google anmelden") }
@@ -372,8 +411,6 @@ fun SettingsScreen(
                         }
                         TextButton(
                             onClick = {
-                                val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                                    .requestEmail().requestScopes(Scope(DriveScopes.DRIVE_APPDATA)).build()
                                 GoogleSignIn.getClient(context, gso).signOut()
                                 viewModel.setDriveAccount("")
                             },

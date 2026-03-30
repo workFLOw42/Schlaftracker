@@ -4,8 +4,11 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import de.schlafgut.app.data.entity.HealthSnapshotEntity
 import de.schlafgut.app.data.entity.SleepEntryEntity
 import de.schlafgut.app.data.entity.WakeWindow
+import de.schlafgut.app.data.health.HealthConnectManager
+import de.schlafgut.app.data.health.HealthDataRepository
 import de.schlafgut.app.data.repository.SleepRepository
 import de.schlafgut.app.util.DateTimeUtil
 import de.schlafgut.app.util.SleepCalculator
@@ -31,23 +34,36 @@ data class SleepLoggerUiState(
     val isSaved: Boolean = false,
 
     // Substanzkonsum
-    val alcoholLevel: Int = 0,       // 0=nein, 1=wenig, 2=mittel, 3=viel
-    val drugLevel: Int = 0,          // 0=nein, 1=wenig, 2=mittel, 3=viel
+    val alcoholLevel: Int = 0,
+    val drugLevel: Int = 0,
     val sleepAid: Boolean = false,
     val medication: Boolean = false,
-    val medicationNotes: String = ""
+    val medicationNotes: String = "",
+
+    // Health Connect Daten
+    val healthConnectEnabled: Boolean = false,
+    val healthSnapshot: HealthSnapshotEntity? = null,
+    val isLoadingHealth: Boolean = false,
+    val healthError: String? = null
 )
 
 @HiltViewModel
 class SleepLoggerViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val repository: SleepRepository
+    private val repository: SleepRepository,
+    private val healthConnectManager: HealthConnectManager,
+    private val healthDataRepository: HealthDataRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SleepLoggerUiState())
     val uiState: StateFlow<SleepLoggerUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            val settings = repository.getSettingsOnce()
+            _uiState.update { it.copy(healthConnectEnabled = settings.healthConnectEnabled) }
+        }
+
         val entryId = savedStateHandle.get<String>("entryId")
         if (entryId != null) {
             loadEntry(entryId)
@@ -62,7 +78,7 @@ class SleepLoggerViewModel @Inject constructor(
     private fun loadEntry(id: String) {
         viewModelScope.launch {
             val entry = repository.getEntryById(id) ?: return@launch
-            _uiState.value = SleepLoggerUiState(
+            _uiState.value = _uiState.value.copy(
                 isNap = entry.isNap,
                 bedTime = entry.bedTime,
                 wakeTime = entry.wakeTime,
@@ -78,7 +94,49 @@ class SleepLoggerViewModel @Inject constructor(
                 medication = entry.medication,
                 medicationNotes = entry.medicationNotes
             )
+            // Lade vorhandenen Health-Snapshot
+            val snapshot = repository.getHealthSnapshot(id)
+            _uiState.update { it.copy(healthSnapshot = snapshot) }
         }
+    }
+
+    /** Health-Daten von Health Connect für den aktuellen Zeitraum laden/aktualisieren. */
+    fun refreshHealthData() {
+        val state = _uiState.value
+        if (!state.healthConnectEnabled) return
+        if (healthConnectManager.checkAvailability() != HealthConnectManager.Availability.AVAILABLE) return
+
+        _uiState.update { it.copy(isLoadingHealth = true, healthError = null) }
+
+        viewModelScope.launch {
+            try {
+                val entryId = state.editingId ?: "temp_${System.currentTimeMillis()}"
+                val snapshot = healthDataRepository.fetchHealthSnapshot(
+                    sleepEntryId = entryId,
+                    bedTimeEpoch = state.bedTime,
+                    wakeTimeEpoch = state.wakeTime
+                )
+                _uiState.update {
+                    it.copy(
+                        healthSnapshot = snapshot,
+                        isLoadingHealth = false,
+                        healthError = if (snapshot == null) "Keine Health-Daten für diesen Zeitraum gefunden" else null
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoadingHealth = false,
+                        healthError = "Fehler beim Laden: ${e.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    /** Health-Snapshot manuell entfernen (z.B. wenn der User die Daten nicht verknüpfen will). */
+    fun clearHealthData() {
+        _uiState.update { it.copy(healthSnapshot = null, healthError = null) }
     }
 
     fun setIsNap(isNap: Boolean) {
@@ -206,6 +264,12 @@ class SleepLoggerViewModel @Inject constructor(
             )
 
             repository.saveEntry(entry)
+
+            // Health-Snapshot speichern (wenn vorhanden)
+            state.healthSnapshot?.let { snapshot ->
+                repository.saveHealthSnapshot(snapshot.copy(sleepEntryId = id))
+            }
+
             _uiState.update { it.copy(isSaved = true) }
         }
     }

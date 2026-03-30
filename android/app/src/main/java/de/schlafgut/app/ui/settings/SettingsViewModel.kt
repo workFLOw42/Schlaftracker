@@ -42,7 +42,8 @@ data class SettingsUiState(
     val driveAccountEmail: String? = null,
     val isDriveBackupRunning: Boolean = false,
     val showPasswordDialog: Boolean = false,
-    val passwordDialogMode: PasswordDialogMode = PasswordDialogMode.UPLOAD
+    val passwordDialogMode: PasswordDialogMode = PasswordDialogMode.UPLOAD,
+    val signInError: String? = null
 )
 
 enum class PasswordDialogMode { UPLOAD, RESTORE }
@@ -226,7 +227,15 @@ class SettingsViewModel @Inject constructor(
     // --- Google Drive Backup ---
 
     fun setDriveAccount(email: String) {
-        _uiState.update { it.copy(driveAccountEmail = email) }
+        _uiState.update { it.copy(driveAccountEmail = email, signInError = null) }
+    }
+
+    fun setSignInError(message: String) {
+        _uiState.update { it.copy(signInError = message) }
+    }
+
+    fun clearSignInError() {
+        _uiState.update { it.copy(signInError = null) }
     }
 
     fun showPasswordDialog(mode: PasswordDialogMode) {
