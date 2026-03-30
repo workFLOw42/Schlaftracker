@@ -7,7 +7,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.schlafgut.app.data.backup.DriveBackupManager
-import de.schlafgut.app.data.entity.HealthSnapshotEntity
 import de.schlafgut.app.data.entity.MedicationEntry
 import de.schlafgut.app.data.entity.UserSettingsEntity
 import de.schlafgut.app.data.export.JsonImportExport
@@ -15,6 +14,7 @@ import de.schlafgut.app.data.health.HealthConnectManager
 import de.schlafgut.app.data.repository.SleepRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -155,7 +155,7 @@ class SettingsViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     showClearDataDialog = false,
-                    successMessage = "Alle Daten gel\u00f6scht"
+                    successMessage = "Alle Daten gelöscht"
                 )
             }
         }
@@ -164,17 +164,15 @@ class SettingsViewModel @Inject constructor(
     fun exportJson(context: Context) {
         viewModelScope.launch {
             val settings = repository.getSettingsOnce()
-            repository.getAllEntries().collect { entries ->
-                val jsonString = JsonImportExport.exportToJson(entries, settings)
-                val uri = JsonImportExport.exportToFile(context, jsonString)
-                val intent = Intent(Intent.ACTION_SEND).apply {
-                    type = "application/json"
-                    putExtra(Intent.EXTRA_STREAM, uri)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                context.startActivity(Intent.createChooser(intent, "Backup exportieren"))
-                return@collect
+            val entries = repository.getAllEntries().first()
+            val jsonString = JsonImportExport.exportToJson(entries, settings)
+            val uri = JsonImportExport.exportToFile(context, jsonString)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
+            context.startActivity(Intent.createChooser(intent, "Backup exportieren"))
         }
     }
 
@@ -213,8 +211,8 @@ class SettingsViewModel @Inject constructor(
 
                 _uiState.update {
                     it.copy(
-                        successMessage = "$imported Eintr\u00e4ge importiert" +
-                            if (skipped > 0) ", $skipped \u00fcbersprungen (Duplikate)" else ""
+                        successMessage = "$imported Einträge importiert" +
+                            if (skipped > 0) ", $skipped übersprungen (Duplikate)" else ""
                     )
                 }
             } catch (e: Exception) {

@@ -1,44 +1,24 @@
 package de.schlafgut.app.data.backup
 
-import android.content.Context
-import com.google.crypto.tink.Aead
-import com.google.crypto.tink.KeyTemplates
-import com.google.crypto.tink.aead.AeadConfig
-import com.google.crypto.tink.integration.android.AndroidKeysetManager
 import java.security.SecureRandom
+import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
-import javax.crypto.Cipher
 
 /**
  * Verschlüsselt und entschlüsselt Backup-Daten.
  *
- * Zwei Modi:
- * - **Gerätegebunden** (Tink/Android Keystore): Schnell, aber nur auf diesem Gerät entschlüsselbar.
- * - **Passwortbasiert** (PBKDF2 + AES-256-GCM): Geräteübergreifend, mit Benutzerpasswort.
+ * Passwortbasiert (PBKDF2 + AES-256-GCM): Geräteübergreifend, mit Benutzerpasswort.
  */
 object BackupEncryption {
 
-    private const val KEYSET_NAME = "schlafgut_backup_keyset"
-    private const val PREF_FILE = "schlafgut_backup_keys"
-    private const val MASTER_KEY_URI = "android-keystore://schlafgut_backup_master"
-
-    // Passwortbasierte Verschlüsselung
     private const val PBKDF2_ITERATIONS = 210_000
     private const val SALT_SIZE = 32
     private const val IV_SIZE = 12
     private const val KEY_SIZE = 256
     private const val TAG_SIZE = 128
-
-    init {
-        AeadConfig.register()
-    }
-
-    // ============================================================
-    // Passwortbasierte Verschlüsselung (geräteübergreifend)
-    // ============================================================
 
     /**
      * Verschlüsselt mit Passwort (PBKDF2 + AES-256-GCM).

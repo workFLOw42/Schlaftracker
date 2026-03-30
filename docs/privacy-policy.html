@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Datenschutzerklärung – SchlafGut</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }
+        h1 { font-size: 1.5em; }
+        h2 { font-size: 1.2em; margin-top: 1.5em; }
+        h3 { font-size: 1.05em; margin-top: 1.2em; }
+        p { margin: 0.8em 0; }
+        .updated { color: #666; font-size: 0.9em; }
+        table { border-collapse: collapse; width: 100%; margin: 0.8em 0; }
+        th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e0e0e0; }
+        th { font-weight: 600; }
+        code { background: #f4f4f4; padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <h1>Datenschutzerklärung – SchlafGut</h1>
+    <p class="updated">Zuletzt aktualisiert: Juni 2025</p>
+
+    <h2>Übersicht</h2>
+    <p>SchlafGut ist ein Schlaftracker für Android. Alle Daten werden <strong>lokal auf deinem Gerät</strong> gespeichert. Es findet kein automatisches Tracking, keine Analyse und keine Weitergabe deiner Daten an den Entwickler oder Dritte statt.</p>
+
+    <h2>Datenerhebung</h2>
+    <p>SchlafGut erhebt oder überträgt <strong>keine personenbezogenen Daten an den Entwickler</strong>. Die App:</p>
+    <ul>
+        <li>Sammelt keine Daten im Hintergrund</li>
+        <li>Verwendet keine Analyse- oder Tracking-Dienste</li>
+        <li>Enthält keine Werbung</li>
+        <li>Benötigt keinen Account</li>
+    </ul>
+
+    <h2>Auf dem Gerät gespeicherte Daten</h2>
+    <p>Alle folgenden Daten werden ausschließlich in einer lokalen Datenbank auf deinem Gerät gespeichert und von dir manuell eingegeben:</p>
+    <ul>
+        <li>Schlafzeiten (Bettzeit, Aufwachzeit, Einschlafzeit)</li>
+        <li>Schlafqualität und Wachphasen</li>
+        <li>Typ (Nachtschlaf oder Nickerchen)</li>
+        <li>Substanzkonsum (Alkohol, Drogen, Schlafmittel, Medikamente)</li>
+        <li>Persönliche Notizen</li>
+        <li>Profilangaben (Name, Standard-Einschlafzeit)</li>
+    </ul>
+    <p>Keine dieser Daten verlässt dein Gerät – es sei denn, du nutzt eine der optionalen Export- oder Backup-Funktionen (siehe unten).</p>
+
+    <h2>Health Connect (optional)</h2>
+    <p>Wenn du die Health-Connect-Integration aktivierst, liest SchlafGut <strong>ausschließlich lesend</strong> folgende Daten:</p>
+    <ul>
+        <li>Körpergewicht und Körpertemperatur</li>
+        <li>Ruhepuls und Herzfrequenz</li>
+        <li>Sauerstoffsättigung (SpO₂)</li>
+        <li>Schritte</li>
+    </ul>
+    <p>SchlafGut <strong>schreibt keine Daten</strong> in Health Connect. Die gelesenen Werte werden lokal gespeichert und nur in der App angezeigt. Die Health-Connect-Berechtigungen können jederzeit in den Android-Einstellungen widerrufen werden.</p>
+
+    <h2>Google Drive Backup (optional)</h2>
+    <p>Du kannst ein verschlüsseltes Backup deiner Daten in deinem persönlichen Google Drive erstellen:</p>
+    <ul>
+        <li>Die Daten werden mit <strong>AES-256-GCM</strong> und einem von dir gewählten Passwort verschlüsselt (PBKDF2, 210.000 Iterationen)</li>
+        <li>Das Backup wird im App Data Folder gespeichert – einem versteckten, nur für SchlafGut zugänglichen Bereich</li>
+        <li>Ohne dein Passwort kann das Backup nicht entschlüsselt werden – auch nicht vom Entwickler oder von Google</li>
+        <li>Für die Anmeldung wird Google Sign-In verwendet; dabei wird ausschließlich deine E-Mail-Adresse gelesen</li>
+    </ul>
+    <p>Diese Funktion erfordert eine Internetverbindung. Ohne aktiviertes Google-Drive-Backup findet <strong>keine Netzwerkkommunikation</strong> statt.</p>
+
+    <h2>Datenexport</h2>
+    <p>Du kannst deine Daten jederzeit als CSV, PDF oder JSON exportieren. Die Dateien werden temporär im App-Cache erstellt und über die Android-Teilen-Funktion bereitgestellt. Du entscheidest, wohin du die Datei sendest.</p>
+
+    <h2>Biometrische Authentifizierung (optional)</h2>
+    <p>Der optionale App-Schutz nutzt die Displaysperre deines Geräts (Fingerabdruck, Gesicht, PIN oder Muster). Die Authentifizierung wird vollständig vom Android-Betriebssystem durchgeführt. SchlafGut speichert keine biometrischen Daten.</p>
+
+    <h2>Berechtigungen</h2>
+    <table>
+        <tr><th>Berechtigung</th><th>Zweck</th></tr>
+        <tr><td><code>INTERNET</code></td><td>Google-Drive-Backup (optional)</td></tr>
+        <tr><td><code>health.READ_*</code></td><td>Health-Connect-Daten lesen (optional)</td></tr>
+    </table>
+    <p>Alle Health-Connect-Berechtigungen werden nur bei Aktivierung angefragt.</p>
+
+    <h2>Drittanbieter-Dienste</h2>
+    <table>
+        <tr><th>Dienst</th><th>Zweck</th></tr>
+        <tr><td>Google Drive API</td><td>Optionales verschlüsseltes Backup</td></tr>
+        <tr><td>Google Sign-In</td><td>Authentifizierung für Google Drive</td></tr>
+        <tr><td>Health Connect</td><td>Optionales Lesen von Gesundheitsdaten</td></tr>
+    </table>
+
+    <h2>Daten löschen</h2>
+    <p>Du kannst jederzeit alle Daten löschen:</p>
+    <ul>
+        <li><strong>Einzelne Einträge:</strong> Im Bearbeitungsmodus über „Eintrag löschen"</li>
+        <li><strong>Alle Daten:</strong> In den Einstellungen über „Alle Daten löschen"</li>
+        <li><strong>App deinstallieren:</strong> Entfernt automatisch alle lokalen Daten</li>
+    </ul>
+
+    <h2>Kinder</h2>
+    <p>SchlafGut ist nicht für Kinder unter 16 Jahren bestimmt. Es werden keine Daten von Kindern wissentlich erhoben.</p>
+
+    <h2>Änderungen</h2>
+    <p>Sollte sich diese Datenschutzerklärung ändern, wird das Aktualisierungsdatum oben angepasst.</p>
+
+    <h2>Kontakt</h2>
+    <p>Bei Fragen zur Datenschutzerklärung: <a href="https://github.com/workFLOw42/Schlaftracker/issues">GitHub Issues</a></p>
+</body>
+</html>
