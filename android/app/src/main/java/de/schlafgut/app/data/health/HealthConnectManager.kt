@@ -19,7 +19,7 @@ import javax.inject.Singleton
 
 @Singleton
 class HealthConnectManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
     val permissions = setOf(
         HealthPermission.getReadPermission(WeightRecord::class),

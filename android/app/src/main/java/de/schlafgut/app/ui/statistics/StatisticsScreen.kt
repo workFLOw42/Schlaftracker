@@ -34,7 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.schlafgut.app.data.export.CsvExporter
 import de.schlafgut.app.data.export.PdfExporter
@@ -111,14 +111,14 @@ fun StatisticsScreen(
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("\uD83C\uDF19 Nachtschlaf", style = MaterialTheme.typography.titleMedium)
-                Text("${state.nightCount} N\u00e4chte im Zeitraum",
+                Text("${state.nightCount} Nächte im Zeitraum",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (state.nightCount > 0) {
                     Text("\u00D8 Dauer: ${DateTimeUtil.formatDuration(state.averageDurationMinutes.toInt())}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("\u00D8 Qualit\u00e4t: ${String.format("%.1f", state.averageQuality)}/10",
+                    Text("\u00D8 Qualität: ${String.format("%.1f", state.averageQuality)}/10",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("\u00D8 Unterbrechungen: ${String.format("%.1f", state.averageInterruptions)}",
@@ -141,8 +141,8 @@ fun StatisticsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (state.nightCount > 0) {
                         val freq = state.nightCount.toDouble() / state.napCount
-                        val freqText = if (freq <= 1.5) "T\u00e4glich" else "Alle ${String.format("%.0f", freq)} Tage"
-                        Text("H\u00e4ufigkeit: $freqText",
+                        val freqText = if (freq <= 1.5) "Täglich" else "Alle ${String.format("%.0f", freq)} Tage"
+                        Text("Häufigkeit: $freqText",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -179,21 +179,21 @@ fun StatisticsScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("\uD83C\uDF77 Substanzen & Schlaf", style = MaterialTheme.typography.titleMedium)
                     if (state.entriesWithAlcohol > 0) {
-                        Text("N\u00e4chte mit Alkohol: ${state.entriesWithAlcohol}",
+                        Text("Nächte mit Alkohol: ${state.entriesWithAlcohol}",
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         val withAlc = state.avgQualityWithAlcohol
                         val withoutAlc = state.avgQualityWithoutAlcohol
                         if (withAlc != null && withoutAlc != null) {
-                            Text("\u00D8 Qualit\u00e4t mit Alkohol: ${String.format("%.1f", withAlc)} vs. ohne: ${String.format("%.1f", withoutAlc)}",
+                            Text("\u00D8 Qualität mit Alkohol: ${String.format("%.1f", withAlc)} vs. ohne: ${String.format("%.1f", withoutAlc)}",
                                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     if (state.entriesWithDrugs > 0) {
-                        Text("N\u00e4chte mit Drogenkonsum: ${state.entriesWithDrugs}",
+                        Text("Nächte mit Drogenkonsum: ${state.entriesWithDrugs}",
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     if (state.entriesWithSleepAid > 0) {
-                        Text("N\u00e4chte mit Schlafmittel: ${state.entriesWithSleepAid}",
+                        Text("Nächte mit Schlafmittel: ${state.entriesWithSleepAid}",
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }

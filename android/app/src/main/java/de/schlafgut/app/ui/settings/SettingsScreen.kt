@@ -52,7 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -142,7 +142,7 @@ fun SettingsScreen(
                     valueRange = 0f..120f,
                     steps = 23
                 )
-                Text("Wird automatisch bei neuen Eintr\u00e4gen verwendet",
+                Text("Wird automatisch bei neuen Einträgen verwendet",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -152,7 +152,7 @@ fun SettingsScreen(
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("\uD83D\uDC8A Feste Medikamente", style = MaterialTheme.typography.titleMedium)
-                Text("Medikamente die du regelm\u00e4\u00dfig nimmst",
+                Text("Medikamente die du regelmäßig nimmst",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
 
@@ -178,7 +178,7 @@ fun SettingsScreen(
                     }
                 }
 
-                // Medikament hinzuf\u00fcgen
+                // Medikament hinzufügen
                 var newMedName by remember { mutableStateOf("") }
                 var newMedDosage by remember { mutableStateOf("") }
 
@@ -208,7 +208,7 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = newMedName.isNotBlank()
-                ) { Text("+ Medikament hinzuf\u00fcgen") }
+                ) { Text("+ Medikament hinzufügen") }
             }
         }
 
@@ -219,7 +219,7 @@ fun SettingsScreen(
 
                 when (state.healthConnectAvailability) {
                     HealthConnectManager.Availability.NOT_SUPPORTED -> {
-                        Text("Health Connect wird auf diesem Ger\u00e4t nicht unterst\u00fctzt",
+                        Text("Health Connect wird auf diesem Gerät nicht unterstützt",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -229,7 +229,7 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedButton(onClick = {
                             try { context.startActivity(viewModel.getHealthConnectInstallIntent()) }
-                            catch (e: Exception) { Toast.makeText(context, "Play Store nicht verf\u00fcgbar", Toast.LENGTH_SHORT).show() }
+                            catch (e: Exception) { Toast.makeText(context, "Play Store nicht verfügbar", Toast.LENGTH_SHORT).show() }
                         }) { Text("Health Connect installieren") }
                     }
                     HealthConnectManager.Availability.AVAILABLE -> {
@@ -239,7 +239,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("K\u00f6rperdaten lesen", style = MaterialTheme.typography.labelLarge)
+                                Text("Körperdaten lesen", style = MaterialTheme.typography.labelLarge)
                                 Text("Gewicht, Puls, Schritte, SpO2",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -328,7 +328,7 @@ fun SettingsScreen(
                         modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
                     Text("  Google Drive Backup", style = MaterialTheme.typography.titleMedium)
                 }
-                Text("Passwort-verschl\u00fcsseltes Backup (AES-256, ger\u00e4te\u00fcbergreifend)",
+                Text("Passwort-verschlüsseltes Backup (AES-256, geräteübergreifend)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
 
@@ -352,7 +352,7 @@ fun SettingsScreen(
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                            Text("  Backup l\u00e4uft...", style = MaterialTheme.typography.bodyMedium,
+                            Text("  Backup läuft...", style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.padding(start = 8.dp))
                         }
                     } else {
@@ -394,7 +394,7 @@ fun SettingsScreen(
             border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.3f))) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Gefahrenzone", style = MaterialTheme.typography.titleMedium, color = DangerRed)
-                Text("Alle Schlafeintr\u00e4ge unwiderruflich l\u00f6schen",
+                Text("Alle Schlafeinträge unwiderruflich löschen",
                     style = MaterialTheme.typography.bodySmall,
                     color = DangerRed.copy(alpha = 0.7f), modifier = Modifier.padding(top = 4.dp))
                 OutlinedButton(
@@ -404,7 +404,7 @@ fun SettingsScreen(
                     border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.5f))
                 ) {
                     Icon(Icons.Default.DeleteForever, contentDescription = null)
-                    Text("  Alle Daten l\u00f6schen")
+                    Text("  Alle Daten löschen")
                 }
             }
         }
@@ -419,9 +419,9 @@ fun SettingsScreen(
     if (state.showClearDataDialog) {
         AlertDialog(
             onDismissRequest = { viewModel.showClearDataDialog(false) },
-            title = { Text("Alle Daten l\u00f6schen?") },
-            text = { Text("Alle Schlafeintr\u00e4ge werden unwiderruflich gel\u00f6scht.") },
-            confirmButton = { TextButton(onClick = { viewModel.clearAllData() }) { Text("L\u00f6schen", color = DangerRed) } },
+            title = { Text("Alle Daten löschen?") },
+            text = { Text("Alle Schlafeinträge werden unwiderruflich gelöscht.") },
+            confirmButton = { TextButton(onClick = { viewModel.clearAllData() }) { Text("Löschen", color = DangerRed) } },
             dismissButton = { TextButton(onClick = { viewModel.showClearDataDialog(false) }) { Text("Abbrechen") } }
         )
     }
@@ -461,7 +461,7 @@ private fun BackupPasswordDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     if (isUpload)
-                        "Dieses Passwort wird ben\u00f6tigt, um das Backup auf einem anderen Ger\u00e4t wiederherzustellen."
+                        "Dieses Passwort wird benötigt, um das Backup auf einem anderen Gerät wiederherzustellen."
                     else
                         "Gib das Passwort ein, mit dem das Backup erstellt wurde.",
                     style = MaterialTheme.typography.bodySmall
@@ -478,7 +478,7 @@ private fun BackupPasswordDialog(
                     OutlinedTextField(
                         value = confirmPassword,
                         onValueChange = { confirmPassword = it; error = null },
-                        label = { Text("Passwort best\u00e4tigen") },
+                        label = { Text("Passwort bestätigen") },
                         visualTransformation = PasswordVisualTransformation(),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -493,7 +493,7 @@ private fun BackupPasswordDialog(
             TextButton(onClick = {
                 when {
                     password.length < 6 -> error = "Mindestens 6 Zeichen"
-                    isUpload && password != confirmPassword -> error = "Passw\u00f6rter stimmen nicht \u00fcberein"
+                    isUpload && password != confirmPassword -> error = "Passwörter stimmen nicht überein"
                     else -> onConfirm(password)
                 }
             }) {

@@ -32,7 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.schlafgut.app.R
 import de.schlafgut.app.ui.components.SummaryCard
@@ -66,7 +66,7 @@ fun DashboardScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onMenuClick) {
-                        Icon(Icons.Default.Menu, contentDescription = "Men\u00fc")
+                        Icon(Icons.Default.Menu, contentDescription = "Menü")
                     }
                 }
             )
@@ -95,7 +95,7 @@ fun DashboardScreen(
                     item { HealthDataRow(left = row2Left, right = row2Right) }
                 }
                 val row3Left = health.weightKg?.let { "\u2696\uFE0F" to ("Gewicht" to "${String.format("%.1f", it)} kg") }
-                val row3Right = health.bodyTempCelsius?.let { "\uD83C\uDF21\uFE0F" to ("K\u00f6rpertemp." to "${String.format("%.1f", it)} \u00B0C") }
+                val row3Right = health.bodyTempCelsius?.let { "\uD83C\uDF21\uFE0F" to ("Körpertemp." to "${String.format("%.1f", it)} \u00B0C") }
                 if (row3Left != null || row3Right != null) {
                     item { HealthDataRow(left = row3Left, right = row3Right) }
                 }
@@ -112,7 +112,7 @@ fun DashboardScreen(
                     SummaryCard(title = "Letzte Nacht",
                         value = state.lastNightDurationMinutes?.let { DateTimeUtil.formatDuration(it) } ?: "\u2014",
                         icon = "\uD83C\uDF19", modifier = Modifier.weight(1f))
-                    SummaryCard(title = "\u00D8 Qualit\u00e4t",
+                    SummaryCard(title = "\u00D8 Qualität",
                         value = state.averageQuality?.let { String.format("%.1f", it) } ?: "\u2014",
                         icon = "\u2B50", modifier = Modifier.weight(1f))
                 }
@@ -123,7 +123,7 @@ fun DashboardScreen(
                     SummaryCard(title = "\u00D8 Dauer",
                         value = state.averageDurationMinutes?.let { DateTimeUtil.formatDuration(it.toInt()) } ?: "\u2014",
                         icon = "\u23F1\uFE0F", modifier = Modifier.weight(1f))
-                    SummaryCard(title = "N\u00e4chte",
+                    SummaryCard(title = "Nächte",
                         value = "${state.totalEntries}",
                         icon = "\uD83D\uDCCB", modifier = Modifier.weight(1f))
                 }
@@ -151,7 +151,7 @@ fun DashboardScreen(
                     item {
                         Row(modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            SummaryCard(title = "H\u00e4ufigkeit",
+                            SummaryCard(title = "Häufigkeit",
                                 value = freq,
                                 icon = "\uD83D\uDD01", modifier = Modifier.weight(1f))
                             Spacer(modifier = Modifier.weight(1f))
@@ -165,7 +165,7 @@ fun DashboardScreen(
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text("Letzte Eintr\u00e4ge", style = MaterialTheme.typography.titleLarge)
+                    Text("Letzte Einträge", style = MaterialTheme.typography.titleLarge)
                     TextButton(onClick = onViewAllClick) { Text("Alle anzeigen") }
                 }
             }
@@ -174,7 +174,7 @@ fun DashboardScreen(
                 item {
                     Card(modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                        Text("Noch keine Eintr\u00e4ge. Tippe auf +, um deinen ersten Schlaf zu erfassen!",
+                        Text("Noch keine Einträge. Tippe auf +, um deinen ersten Schlaf zu erfassen!",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(24.dp))
