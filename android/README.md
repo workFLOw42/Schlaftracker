@@ -79,6 +79,12 @@ app/src/main/java/de/schlafgut/app/
 └── SchlafGutApp.kt      # Application-Klasse (Hilt Entry Point)
 ```
 
+## 🔒 Datenschutz & Sicherheit
+
+- **Lokale Datenspeicherung** – Alle Schlafdaten werden ausschließlich lokal auf deinem Gerät gespeichert. Es gibt keinen Server, keinen Account und keine Datenübertragung an Dritte.
+- **Verschlüsselte Backups** – Google Drive Backups sind mit AES-256-GCM verschlüsselt. Die Verschlüsselung basiert auf deinem persönlichen Passwort (PBKDF2). Ohne dieses Passwort kann niemand – auch nicht Google – den Inhalt lesen.
+- **Kein Tracking, keine Werbung** – Die App enthält keine Analyse-SDKs, kein Telemetrie und keine Werbenetzwerke.
+
 ## 📄 Lizenz
 
 Dieses Projekt ist privat. Alle Rechte vorbehalten.
