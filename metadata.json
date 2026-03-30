@@ -1,5 +1,9 @@
 {
-  "name": "SchlafGut - Sleep Tracker",
-  "description": "Ein umfassender Schlaf-Tracker mit Wachphasen-Analyse, Qualitätsbewertung und KI-gestützten Erkenntnissen von Gemini.",
-  "requestFramePermissions": []
+  "name": "SchlafGut — Schlaftracker",
+  "description": "Native Android-App zur Erfassung und Analyse des Schlafs. Features: Schlafprotokoll, Nickerchen, Substanzkonsum, Health Connect Integration, Google Drive Backup, CSV/PDF/JSON-Export, Biometrischer App-Schutz.",
+  "platform": "android",
+  "package": "de.schlafgut.app",
+  "minSdk": 26,
+  "targetSdk": 35,
+  "version": "1.0.0"
 }

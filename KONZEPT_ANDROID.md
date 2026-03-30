@@ -49,31 +49,38 @@
 ```
 de.schlafgut.app/
 ├── data/
+│   ├── backup/
+│   │   ├── DriveBackupManager.kt      # Google Drive Backup + Restore
+│   │   └── BackupEncryption.kt        # PBKDF2 + AES-256-GCM Verschlüsselung
 │   ├── db/
-│   │   ├── SchlafGutDatabase.kt       # Room Database
+│   │   ├── SchlafGutDatabase.kt       # Room Database (v3, 3 Migrationen)
 │   │   ├── SleepEntryDao.kt           # DAO
 │   │   ├── SettingsDao.kt             # DAO
+│   │   ├── HealthSnapshotDao.kt       # DAO
 │   │   └── Converters.kt              # TypeConverters (Listen, Dates)
 │   ├── entity/
-│   │   ├── SleepEntryEntity.kt        # Room Entity
-│   │   ├── WakeWindowEntity.kt        # Embedded / JSON
-│   │   └── UserSettingsEntity.kt      # Einstellungen
+│   │   ├── SleepEntryEntity.kt        # Room Entity (inkl. Substanz-Tracking)
+│   │   ├── WakeWindow.kt              # Datenklasse (JSON via TypeConverter)
+│   │   ├── UserSettingsEntity.kt      # Einstellungen (inkl. regularMedications)
+│   │   └── HealthSnapshotEntity.kt    # Health Connect Körperdaten pro Eintrag
 │   ├── repository/
-│   │   └── SleepRepository.kt         # Repository
+│   │   └── SleepRepository.kt         # Repository (Single Source of Truth)
 │   ├── export/
-│   │   ├── CsvExporter.kt             # CSV-Export
-│   │   ├── PdfExporter.kt             # PDF-Export
-│   │   └── JsonImportExport.kt        # JSON Import/Export
+│   │   ├── CsvExporter.kt             # CSV-Export (semikolongetrennt + Health-Spalten)
+│   │   ├── PdfExporter.kt             # PDF-Export (Landscape A4)
+│   │   └── JsonImportExport.kt        # JSON Import/Export (PWA-kompatibel)
 │   └── health/
 │       ├── HealthConnectManager.kt    # Health Connect Client + Permissions
 │       └── HealthDataRepository.kt    # Lesen von Körperdaten
+├── di/
+│   └── DatabaseModule.kt              # Hilt DI Module
 ├── ui/
 │   ├── theme/
-│   │   ├── Theme.kt                   # Dark Theme, Farben
+│   │   ├── Theme.kt                   # Material 3 Dark Theme
 │   │   ├── Color.kt                   # Farbpalette
 │   │   └── Type.kt                    # Typografie
 │   ├── navigation/
-│   │   └── NavGraph.kt                # Navigation Compose
+│   │   └── NavGraph.kt                # Navigation Compose + Screen-Enum
 │   ├── dashboard/
 │   │   ├── DashboardScreen.kt
 │   │   └── DashboardViewModel.kt
@@ -86,16 +93,26 @@ de.schlafgut.app/
 │   ├── settings/
 │   │   ├── SettingsScreen.kt
 │   │   └── SettingsViewModel.kt
-│   └── components/
-│       ├── SleepTimeline.kt           # Timeline-Composable
-│       ├── SummaryCard.kt             # Dashboard-Karte
-│       ├── QualityBadge.kt            # Farbiger Qualitäts-Indikator
-│       └── WakeWindowEditor.kt        # Wachphasen hinzufügen/entfernen
+│   ├── allentries/
+│   │   └── AllEntriesScreen.kt        # Vollständige Eintrags-Liste
+│   ├── onboarding/
+│   │   └── OnboardingScreen.kt        # Ersteinrichtung (Name + Standard-Latenz)
+│   ├── components/
+│   │   ├── SleepTimeline.kt           # Mini Timeline-Composable
+│   │   ├── SleepTimeline24h.kt        # Canvas-basierte 24h-Visualisierung
+│   │   ├── SummaryCard.kt             # Dashboard-Karte
+│   │   ├── SleepEntryRow.kt           # Eintrag in Listen
+│   │   ├── DateTimePickerDialog.kt    # Material 3 DateTimePicker
+│   │   ├── WakeWindowDialog.kt        # Wachphasen hinzufügen/entfernen
+│   │   └── SleepCharts.kt             # Vico-Charts (Dauer, Qualität, Unterbrechungen)
+│   └── RootViewModel.kt               # Startup-Logic (Onboarding, App-Lock)
 ├── util/
 │   ├── SleepCalculator.kt             # Dauer-Berechnung, Validierung
 │   ├── DateTimeUtil.kt                # Formatierung, Konvertierung
 │   └── BiometricHelper.kt             # Biometrie-Wrapper
-└── MainActivity.kt                     # Entry Point + Scaffold
+├── MainActivity.kt                     # Entry Point + Navigation Drawer
+├── SchlafGutApp.kt                    # Hilt Application
+└── HealthPermissionsRationaleActivity.kt  # Health Connect Privacy Policy Screen
 ```
 
 ---
@@ -119,7 +136,14 @@ data class SleepEntryEntity(
     val interruptionCount: Int,          // = wakeWindows.size
     val quality: Int,                    // 1-10
     val tags: List<String>,             // JSON via TypeConverter
-    val notes: String                    // Freitext
+    val notes: String,                   // Freitext
+
+    // Substanz-Tracking (Schema v2+)
+    val alcoholLevel: Int = 0,           // 0=nein, 1=wenig, 2=mittel, 3=viel
+    val drugLevel: Int = 0,              // 0=nein, 1=wenig, 2=mittel, 3=viel
+    val sleepAid: Boolean = false,       // Schlafmittel eingenommen?
+    val medication: Boolean = false,     // Medikament eingenommen?
+    val medicationNotes: String = ""     // Freitext zu Medikamenten
 )
 
 data class WakeWindow(
@@ -133,13 +157,26 @@ data class WakeWindow(
 ```kotlin
 @Entity(tableName = "user_settings")
 data class UserSettingsEntity(
-    @PrimaryKey val id: Int = 1,              // Singleton (nur ein User)
+    @PrimaryKey val id: Int = 1,                           // Singleton (nur ein User)
     val userName: String = "",
-    val defaultSleepLatency: Int = 15,        // Minuten
-    val appLockEnabled: Boolean = false,       // Biometrie an/aus
-    val themeMode: String = "dark"             // Für spätere Erweiterung
+    val defaultSleepLatency: Int = 15,                     // Minuten
+    val appLockEnabled: Boolean = false,                    // Biometrie an/aus
+    val healthConnectEnabled: Boolean = false,              // Health Connect Verknüpfung
+    val onboardingCompleted: Boolean = false,               // Ersteinrichtung abgeschlossen?
+
+    // Regelmäßige Medikamente (Schema v3)
+    val regularMedications: List<MedicationEntry> = emptyList()  // JSON via TypeConverter
+)
+
+data class MedicationEntry(
+    val name: String,
+    val dosage: String = ""
 )
 ```
+
+**Schema-Versionen:**
+- v1 → v2: Substanz-Tracking-Felder in `SleepEntryEntity` ergänzt
+- v2 → v3: `regularMedications`-Liste in `UserSettingsEntity` ergänzt
 
 ### TypeConverters
 
@@ -163,30 +200,39 @@ class Converters {
 
 ## 4. Screens & Navigation
 
-### Navigation (Bottom Bar + FAB)
+### Navigation (Modal Drawer + FAB)
 
 ```
-┌─────────────────────────────────────┐
-│            App Content              │
-│                                     │
-│  [Dashboard|Statistics|Settings]    │
-│                                     │
-├─────────────────────────────────────┤
-│  🏠 Home  │  📊 Statistik  │  ⚙ Einst. │   ← Bottom Navigation
-│           │    ＋ (FAB)     │           │   ← Zentraler FAB
-└─────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│  ☰  TopAppBar          [SchlafGut Logo]  │
+│                                          │
+│         App Content (Screen)             │
+│                                          │
+│                                [+ FAB]   │
+└──────────────────────────────────────────┘
+
+Drawer (ausklappbar von links):
+┌────────────────────┐
+│  [Logo]  SchlafGut │
+│  ─────────────────  │
+│  🏠 Dashboard       │
+│  📊 Statistik       │
+│  📋 Alle Einträge   │
+│  ⚙  Einstellungen  │
+└────────────────────┘
 ```
 
 | Route | Screen | Beschreibung |
 |---|---|---|
-| `/dashboard` | DashboardScreen | Übersicht + letzte Einträge |
-| `/log` | SleepLoggerScreen | Neuer Eintrag / Bearbeiten |
-| `/statistics` | StatisticsScreen | Charts, Timeline, Export |
-| `/settings` | SettingsScreen | Einstellungen, Import/Export, App-Schutz |
+| `dashboard` | DashboardScreen | Übersicht + letzte Einträge |
+| `sleep_logger?entryId={id}` | SleepLoggerScreen | Neuer Eintrag / Bearbeiten |
+| `statistics` | StatisticsScreen | Charts, Timeline, Export |
+| `all_entries` | AllEntriesScreen | Vollständige Eintragsliste |
+| `settings` | SettingsScreen | Einstellungen, Import/Export, App-Schutz |
 
-- **3 Tabs** in der Bottom Bar: Dashboard, Statistik, Einstellungen
-- **Zentraler FAB** (erhöht): "+" für neuen Schlaf-Eintrag
-- Kein AI-Coach Tab (entfällt)
+- **Modal Navigation Drawer** (links): Dashboard, Statistik, Alle Einträge, Einstellungen
+- **Floating Action Button** ("+"): Neuer Schlaf-Eintrag
+- TopAppBar nur auf Statistik- und Einstellungs-Screen
 
 ---
 
@@ -272,6 +318,8 @@ Formular-Elemente:
 - **Benutzername** (optional, für Export-Header)
 - **Standard-Einschlaflatenz** (Number, 0-120 Min)
 - **App-Schutz**: Toggle + Biometrie-Einrichtung
+- **Health Connect**: Toggle + Permission-Flow
+- **Google Drive Backup**: Verschlüsseltes Backup/Restore in Google Drive (AES-256-GCM)
 - **Daten**:
   - JSON-Export (komplettes Backup)
   - JSON-Import (aus PWA oder Backup)
@@ -597,6 +645,12 @@ val MedianWake = Color(0xFF14B8A6)      // Teal
 |---|---|
 | androidx.health.connect:connect-client | Health Connect API (lesen) |
 
+### Backup & Verschlüsselung
+| Library | Zweck |
+|---|---|
+| Google Drive API (play-services-auth + drive v3) | Cloud-Backup in Google Drive |
+| Tink (google.crypto.tink) | PBKDF2 + AES-256-GCM Verschlüsselung des Backups |
+
 ### Sicherheit
 | Library | Zweck |
 |---|---|
@@ -644,61 +698,67 @@ val MedianWake = Color(0xFF14B8A6)      // Teal
 
 ## 11. Implementierungs-Phasen
 
-### Phase 1 — Grundgerüst (Woche 1-2)
-- [ ] Android-Projekt aufsetzen (Gradle, Dependencies)
-- [ ] Room-Datenbank + Entities + DAOs
-- [ ] Repository + ViewModels
-- [ ] Theme (Dark, Farbpalette)
-- [ ] Navigation Scaffold (Bottom Bar + FAB)
-- [ ] Settings-Screen (Basis)
+### Phase 1 — Grundgerüst ✅ (abgeschlossen)
+- [x] Android-Projekt aufsetzen (Gradle, Dependencies)
+- [x] Room-Datenbank + Entities + DAOs (Schema v1)
+- [x] Repository + ViewModels
+- [x] Theme (Dark, Farbpalette)
+- [x] Navigation Scaffold (Modal Drawer + FAB)
+- [x] Settings-Screen (Basis)
 
-### Phase 2 — Sleep Logger (Woche 2-3)
-- [ ] SleepLogger-Screen komplett
-- [ ] DateTime-Picker (Bett/Aufwach)
-- [ ] Latenz-Slider
-- [ ] Wachphasen-Editor (Add/Remove/Validierung)
-- [ ] Qualitäts-Slider
-- [ ] Validierungslogik
-- [ ] Speichern + Bearbeiten + Löschen
+### Phase 2 — Sleep Logger ✅ (abgeschlossen)
+- [x] SleepLogger-Screen komplett
+- [x] DateTime-Picker (Bett/Aufwach)
+- [x] Latenz-Slider
+- [x] Wachphasen-Editor (Add/Remove/Validierung)
+- [x] Qualitäts-Slider
+- [x] Validierungslogik
+- [x] Speichern + Bearbeiten + Löschen
 
-### Phase 3 — Dashboard (Woche 3-4)
-- [ ] Summary Cards (4 Kennzahlen)
-- [ ] Letzte-Einträge-Liste
-- [ ] SleepTimeline Composable (Canvas)
-- [ ] Tap-to-Edit Navigation
+### Phase 3 — Dashboard ✅ (abgeschlossen)
+- [x] Summary Cards (4 Kennzahlen)
+- [x] Letzte-Einträge-Liste
+- [x] SleepTimeline Composable (Canvas)
+- [x] Tap-to-Edit Navigation
 
-### Phase 4 — Statistik (Woche 4-5)
-- [ ] Datumsbereich-Filter
-- [ ] 24h-Timeline (Canvas-Zeichnung)
-- [ ] Median-Berechnung + -Linien
-- [ ] Charts (Vico): Dauer, Qualität, Unterbrechungen
-- [ ] CSV-Export
-- [ ] PDF-Export
+### Phase 4 — Statistik ✅ (abgeschlossen)
+- [x] Datumsbereich-Filter
+- [x] 24h-Timeline (Canvas-Zeichnung, SleepTimeline24h)
+- [x] Median-Berechnung + -Linien
+- [x] Charts (Vico): Dauer, Qualität, Unterbrechungen
+- [x] CSV-Export (semikolongetrennt, Health-Spalten)
+- [x] PDF-Export (Landscape A4)
 
-### Phase 5 — Extras (Woche 5-6)
-- [ ] Biometrie / App-Schutz
-- [ ] JSON-Export (Backup)
-- [ ] JSON-Import (PWA + Backup)
-- [ ] PWA-Export-Tool (kleines Script/Button in der PWA)
-- [ ] Onboarding (erster Start: Name + Latenz einstellen)
+### Phase 5 — Extras ✅ (abgeschlossen)
+- [x] Biometrie / App-Schutz (BiometricHelper + RootViewModel)
+- [x] JSON-Export (Backup)
+- [x] JSON-Import (PWA + Backup)
+- [x] Onboarding (erster Start: Name + Latenz einstellen)
+- [x] Substanz-Tracking: Alkohol, Drogen, Schlafmittel, Medikamente (Schema v2)
+- [x] AllEntries-Screen (vollständige Eintragsliste)
 
-### Phase 5b — Health Connect (Woche 6)
-- [ ] HealthConnectManager (Verfügbarkeit, Permissions)
-- [ ] HealthDataRepository (Daten lesen + cachen)
-- [ ] HealthSnapshot Entity + DAO + Migration
-- [ ] Einstellungen: Health Connect Toggle + Permission-Flow
-- [ ] Anzeige im Dashboard + Logger (Körperdaten-Karte)
-- [ ] Statistik: Gewicht/Puls-Charts oder Overlays
-- [ ] Export: Health-Spalten in CSV + PDF
-- [ ] Manifest + Play Console Deklarationen
+### Phase 5b — Health Connect ✅ (abgeschlossen)
+- [x] HealthConnectManager (Verfügbarkeit, Permissions)
+- [x] HealthDataRepository (Daten lesen + cachen)
+- [x] HealthSnapshot Entity + DAO + Migration (Schema v2)
+- [x] Einstellungen: Health Connect Toggle + Permission-Flow
+- [x] Anzeige im Dashboard (Icons: Puls, Schritte)
+- [x] Export: Health-Spalten in CSV + PDF
+- [x] Manifest + Play Console Deklarationen (HealthPermissionsRationaleActivity)
 
-### Phase 6 — Polish & Release (Woche 7-8)
-- [ ] App-Icon & Assets
-- [ ] Edge Cases & Error Handling
-- [ ] Performance-Optimierung (LazyColumn, etc.)
-- [ ] Play Store Listing erstellen
-- [ ] Privacy Policy
-- [ ] Beta-Test → Release
+### Phase 5c — Google Drive Backup ✅ (abgeschlossen)
+- [x] DriveBackupManager (Upload/Download)
+- [x] BackupEncryption (PBKDF2 + AES-256-GCM)
+- [x] RegularMedications-Liste in UserSettings (Schema v3)
+- [x] Einstellungen: Drive Backup UI
+
+### Phase 6 — Polish & Release ✅ (abgeschlossen)
+- [x] ProGuard-Regeln (R8, minify + shrink resources)
+- [x] Release-Signing konfiguriert (local.properties)
+- [x] Privacy Policy (PRIVACY_POLICY.md)
+- [x] targetSdk/compileSdk 35 (Android 15)
+- [ ] App-Icon & Store Assets (offen)
+- [ ] Play Store Listing + Beta-Test → Release (offen)
 
 ---
 
