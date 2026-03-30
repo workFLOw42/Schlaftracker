@@ -1,20 +1,84 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🌙 SchlafGut – Schlaftracker für Android
 
-# Run and deploy your AI Studio app
+**SchlafGut** ist eine native Android-App zur umfassenden Erfassung und Analyse deines Schlafverhaltens. Die App hilft dir, deinen Schlaf besser zu verstehen und langfristig zu verbessern.
 
-This contains everything you need to run your app locally.
+## ✨ Features
 
-View your app in AI Studio: https://ai.studio/apps/drive/1UnMB1zkCvHtfoB1YFjD1sZpXSozeuq05
+- **Schlafprotokoll** – Erfasse Bettzeit, Aufwachzeit, Einschlaflatenz, Wachphasen, Schlafqualität (1–10) und persönliche Notizen
+- **Nickerchen-Tracking** – Naps separat erfassen mit eigener Statistik (Häufigkeit, Durchschnittsdauer)
+- **Substanzkonsum** – Dokumentiere Alkohol, Drogen, Schlafmittel und Medikamente
+- **Dashboard** – Übersicht über letzte Einträge, Durchschnittsqualität, Schlafdauer und Gesundheitsdaten
+- **Statistiken & Charts** – Visuelle Auswertungen deines Schlafverhaltens mit Vico-Charts
+- **Health Connect Integration** – Automatischer Import von Gewicht, Herzfrequenz, Sauerstoffsättigung, Schritte und Körpertemperatur
+- **Datenexport** – Export als CSV, PDF oder JSON
+- **Google Drive Backup** – Verschlüsselte Sicherung deiner Daten in Google Drive
+- **Onboarding** – Geführte Ersteinrichtung
+- **Biometrische Authentifizierung** – Optionaler Schutz per Fingerabdruck / Face Unlock
+- **Material Design 3** – Modernes UI mit Jetpack Compose
 
-## Run Locally
+## 🏗️ Architektur & Tech-Stack
 
-**Prerequisites:**  Node.js
+| Bereich | Technologie |
+|---|---|
+| UI | Jetpack Compose, Material 3 |
+| Navigation | Navigation Compose |
+| Architektur | MVVM, StateFlow |
+| DI | Hilt / Dagger |
+| Datenbank | Room |
+| Gesundheitsdaten | Health Connect API |
+| Charts | Vico (compose-m3) |
+| Backup | Google Drive API + Tink Encryption |
+| Serialisierung | Kotlinx Serialization |
+| Build | Gradle (Kotlin DSL), KSP |
 
+## 📋 Voraussetzungen
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- Android Studio Ladybug oder neuer
+- JDK 17
+- Android SDK 35 (compileSdk)
+- Minimum SDK 26 (Android 8.0)
+
+## 🚀 Build & Ausführen
+
+```bash
+# Projekt klonen
+git clone https://github.com/<user>/Schlaftracker.git
+cd Schlaftracker/android
+
+# Debug-Build erstellen
+./gradlew assembleDebug
+
+# Auf verbundenem Gerät installieren
+./gradlew installDebug
+```
+
+## 📁 Projektstruktur
+
+```
+app/src/main/java/de/schlafgut/app/
+├── data/
+│   ├── backup/          # Google Drive Backup & Verschlüsselung
+│   ├── db/              # Room Database & DAOs
+│   ├── entity/          # Datenmodelle (SleepEntry, HealthSnapshot, UserSettings)
+│   ├── export/          # CSV-, PDF- und JSON-Export
+│   ├── health/          # Health Connect Repository
+│   └── repository/      # Daten-Repository
+├── di/                  # Hilt Dependency Injection Module
+├── ui/
+│   ├── allentries/      # Alle Einträge anzeigen
+│   ├── components/      # Wiederverwendbare UI-Komponenten
+│   ├── dashboard/       # Startseite / Dashboard
+│   ├── logger/          # Schlaf-Eingabeformular
+│   ├── navigation/      # Navigation Graph & Screen-Definitionen
+│   ├── onboarding/      # Ersteinrichtung
+│   ├── settings/        # Einstellungen
+│   ├── statistics/      # Statistiken & Charts
+│   └── theme/           # Material Theme & Farben
+├── util/                # Hilfsfunktionen
+├── MainActivity.kt
+└── SchlafGutApp.kt      # Application-Klasse (Hilt Entry Point)
+```
+
+## 📄 Lizenz
+
+Dieses Projekt ist privat. Alle Rechte vorbehalten.
