@@ -19,12 +19,13 @@ val releaseProperties = Properties().apply {
 
 android {
     namespace = "de.schlafgut.app"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "de.schlafgut.app"
         minSdk = 26
-        targetSdk = 36
+        //noinspection OldTargetApi
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
 
