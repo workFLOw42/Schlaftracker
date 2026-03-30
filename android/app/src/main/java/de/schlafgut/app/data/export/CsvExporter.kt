@@ -8,7 +8,7 @@ import de.schlafgut.app.data.entity.HealthSnapshotEntity
 import de.schlafgut.app.data.entity.SleepEntryEntity
 import de.schlafgut.app.util.DateTimeUtil
 import java.io.File
-import java.time.LocalDate
+import java.util.Locale
 
 object CsvExporter {
 
@@ -23,24 +23,22 @@ object CsvExporter {
 
         val sb = StringBuilder()
 
-        // Header
         sb.appendLine(
             "Datum;Typ;Bettzeit;Aufwachzeit;Schlafdauer (h);Wachzeit (min);" +
-                "Einschlafzeit (min);Qualit\u00E4t;Unterbrechungen;" +
+                "Einschlafzeit (min);Qualität;Unterbrechungen;" +
                 "Gewicht (kg);Ruhepuls;SpO2 (%);Schritte;Notizen"
         )
 
-        // Data rows
         entries.sortedBy { it.bedTime }.forEach { entry ->
             val snapshot = healthSnapshots[entry.id]
             val dateStr = DateTimeUtil.formatDateShort(entry.date)
             val typ = if (entry.isNap) "Nickerchen" else "Nachtschlaf"
             val bedStr = DateTimeUtil.formatTime(entry.bedTime)
             val wakeStr = DateTimeUtil.formatTime(entry.wakeTime)
-            val durationH = String.format("%.2f", entry.sleepDurationMinutes / 60.0)
-            val weight = snapshot?.weightKg?.let { String.format("%.1f", it) } ?: ""
+            val durationH = String.format(Locale.US, "%.2f", entry.sleepDurationMinutes / 60.0)
+            val weight = snapshot?.weightKg?.let { String.format(Locale.US, "%.1f", it) } ?: ""
             val hr = snapshot?.restingHeartRate?.toString() ?: ""
-            val spo2 = snapshot?.oxygenSaturation?.let { String.format("%.0f", it) } ?: ""
+            val spo2 = snapshot?.oxygenSaturation?.let { String.format(Locale.US, "%.0f", it) } ?: ""
             val steps = snapshot?.stepsTotal?.toString() ?: ""
             val notes = "\"${entry.notes.replace("\"", "\"\"")}\""
 
@@ -51,29 +49,23 @@ object CsvExporter {
             )
         }
 
-        // Summary
         sb.appendLine()
         sb.appendLine("Zusammenfassung")
         sb.appendLine(
-            "\u00D8 Dauer;${
-                String.format("%.2f", entries.map { it.sleepDurationMinutes }.average() / 60.0)
+            "Ø Dauer;${
+                String.format(Locale.US, "%.2f", entries.map { it.sleepDurationMinutes }.average() / 60.0)
             }h"
         )
         sb.appendLine(
-            "\u00D8 Qualit\u00E4t;${String.format("%.1f", entries.map { it.quality }.average())}"
+            "Ø Qualität;${String.format(Locale.US, "%.1f", entries.map { it.quality }.average())}"
         )
-        sb.appendLine("Eintr\u00E4ge;${entries.size}")
+        sb.appendLine("Einträge;${entries.size}")
 
-        // Write to cache file
         val fileName = "SchlafGut_Export_${startDate}_${endDate}.csv"
         val file = File(context.cacheDir, fileName)
         file.writeText(sb.toString(), Charsets.UTF_8)
 
-        return FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            file
-        )
+        return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
     }
 
     fun createShareIntent(uri: Uri): Intent {

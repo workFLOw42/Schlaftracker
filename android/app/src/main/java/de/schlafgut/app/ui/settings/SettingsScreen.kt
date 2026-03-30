@@ -1,7 +1,5 @@
 package de.schlafgut.app.ui.settings
 
-import android.app.Activity
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -55,9 +52,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.auth.api.identity.AuthorizationRequest
+import com.google.android.gms.auth.api.identity.AuthorizationResult
+import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
 import com.google.api.services.drive.DriveScopes
 import de.schlafgut.app.BuildConfig
@@ -65,9 +62,6 @@ import de.schlafgut.app.data.health.HealthConnectManager
 import de.schlafgut.app.ui.theme.DangerRed
 import de.schlafgut.app.ui.theme.DangerRedBg
 
-private const val TAG = "SettingsScreen"
-
-@Suppress("DEPRECATION")
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -77,28 +71,18 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val healthPermissionLauncher = rememberLauncherForActivityResult(viewModel.healthConnectPermissionContract) { granted ->
         if (granted.isNotEmpty()) { viewModel.setHealthConnectEnabled(true); viewModel.saveSettings() } else { viewModel.setHealthConnectEnabled(false) }
     }
-    val gso = remember { GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).requestEmail().requestScopes(Scope(DriveScopes.DRIVE_APPDATA)).build() }
-    val googleSignInLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+    val driveAuthLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         try {
-            val account = GoogleSignIn.getSignedInAccountFromIntent(result.data).getResult(ApiException::class.java)
-            account?.email?.let { viewModel.setDriveAccount(it) } ?: viewModel.setSignInError("Kein Email-Konto gefunden")
-        } catch (e: ApiException) {
-            val msg = when (e.statusCode) { 12501 -> "Anmeldung abgebrochen"; 10 -> "App ist nicht korrekt in der Google Cloud Console konfiguriert (Developer Error)"; else -> "Anmeldung fehlgeschlagen (Code: ${e.statusCode})" }
-            viewModel.setSignInError(msg)
-        } catch (e: Exception) { viewModel.setSignInError("Anmeldung fehlgeschlagen: ${e.message}") }
+            val authResult = Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(result.data)
+            handleAuthResult(authResult, viewModel)
+        } catch (e: Exception) { viewModel.setSignInError("Autorisierung fehlgeschlagen: ${e.message}") }
     }
 
     LaunchedEffect(state.successMessage) { if (state.successMessage != null) { kotlinx.coroutines.delay(3000); viewModel.clearSuccessMessage() } }
-    LaunchedEffect(Unit) { GoogleSignIn.getLastSignedInAccount(context)?.email?.let { viewModel.setDriveAccount(it) } }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Einstellungen", style = MaterialTheme.typography.headlineLarge)
-
-        state.successMessage?.let { msg ->
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                Text(msg, modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.onPrimaryContainer)
-            }
-        }
+        state.successMessage?.let { msg -> Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) { Text(msg, modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.onPrimaryContainer) } }
 
         // ====== Profil ======
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -126,13 +110,12 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     }
                     if (index < state.regularMedications.lastIndex) HorizontalDivider()
                 }
-                var newMedName by remember { mutableStateOf("") }
-                var newMedDosage by remember { mutableStateOf("") }
+                // Textfelder im ViewModel-State → werden bei "Einstellungen speichern" mitgespeichert
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = newMedName, onValueChange = { newMedName = it }, label = { Text("Medikament") }, modifier = Modifier.weight(1f), singleLine = true)
-                    OutlinedTextField(value = newMedDosage, onValueChange = { newMedDosage = it }, label = { Text("Dosis") }, modifier = Modifier.weight(0.6f), singleLine = true)
+                    OutlinedTextField(value = state.pendingMedName, onValueChange = { viewModel.setPendingMedName(it) }, label = { Text("Medikament") }, modifier = Modifier.weight(1f), singleLine = true)
+                    OutlinedTextField(value = state.pendingMedDosage, onValueChange = { viewModel.setPendingMedDosage(it) }, label = { Text("Dosis") }, modifier = Modifier.weight(0.6f), singleLine = true)
                 }
-                OutlinedButton(onClick = { if (newMedName.isNotBlank()) { viewModel.addMedication(newMedName.trim(), newMedDosage.trim()); newMedName = ""; newMedDosage = "" } }, modifier = Modifier.fillMaxWidth(), enabled = newMedName.isNotBlank()) { Text("+ Medikament hinzufügen") }
+                OutlinedButton(onClick = { if (state.pendingMedName.isNotBlank()) viewModel.addMedication(state.pendingMedName.trim(), state.pendingMedDosage.trim()) }, modifier = Modifier.fillMaxWidth(), enabled = state.pendingMedName.isNotBlank()) { Text("+ Medikament hinzufügen") }
             }
         }
 
@@ -148,13 +131,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     }
                     HealthConnectManager.Availability.AVAILABLE -> {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Körperdaten lesen", style = MaterialTheme.typography.labelLarge)
-                                Text("Aktiviere Health Connect und wähle Datentypen", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Switch(checked = state.healthConnectEnabled, onCheckedChange = { enabled ->
-                                if (enabled) healthPermissionLauncher.launch(viewModel.healthConnectPermissions) else viewModel.setHealthConnectEnabled(false)
-                            })
+                            Column(modifier = Modifier.weight(1f)) { Text("Körperdaten lesen", style = MaterialTheme.typography.labelLarge); Text("Aktiviere Health Connect und wähle Datentypen", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            Switch(checked = state.healthConnectEnabled, onCheckedChange = { enabled -> if (enabled) healthPermissionLauncher.launch(viewModel.healthConnectPermissions) else viewModel.setHealthConnectEnabled(false) })
                         }
                         if (state.healthConnectEnabled) {
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -208,15 +186,25 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 Text("Passwort-verschlüsseltes Backup (AES-256, geräteübergreifend)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 state.signInError?.let { error -> Card(colors = CardDefaults.cardColors(containerColor = DangerRedBg)) { Text(error, color = DangerRed, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(12.dp)) } }
                 if (state.driveAccountEmail.isNullOrBlank()) {
-                    OutlinedButton(onClick = { viewModel.clearSignInError(); val client = GoogleSignIn.getClient(context, gso); client.signOut().addOnCompleteListener { googleSignInLauncher.launch(client.signInIntent) } }, modifier = Modifier.fillMaxWidth()) { Text("Mit Google anmelden") }
+                    OutlinedButton(onClick = {
+                        viewModel.clearSignInError()
+                        val authRequest = AuthorizationRequest.Builder().setRequestedScopes(listOf(Scope(DriveScopes.DRIVE_APPDATA))).build()
+                        Identity.getAuthorizationClient(context).authorize(authRequest)
+                            .addOnSuccessListener { authResult ->
+                                if (authResult.hasResolution()) {
+                                    authResult.pendingIntent?.let { pi -> driveAuthLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(pi.intentSender).build()) }
+                                } else { handleAuthResult(authResult, viewModel) }
+                            }
+                            .addOnFailureListener { e -> viewModel.setSignInError("Autorisierung fehlgeschlagen: ${e.message}") }
+                    }, modifier = Modifier.fillMaxWidth()) { Text("Mit Google autorisieren") }
                 } else {
-                    Text("Angemeldet als: ${state.driveAccountEmail}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    Text("Autorisiert als: ${state.driveAccountEmail}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                     if (state.isDriveBackupRunning) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(modifier = Modifier.size(24.dp)); Text("  Backup läuft...", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 8.dp)) }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(modifier = Modifier.size(24.dp)); Text("  Backup läuft...", modifier = Modifier.padding(start = 8.dp)) }
                     } else {
                         OutlinedButton(onClick = { viewModel.showPasswordDialog(PasswordDialogMode.UPLOAD) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.CloudUpload, contentDescription = null); Text("  Backup erstellen") }
                         OutlinedButton(onClick = { viewModel.showPasswordDialog(PasswordDialogMode.RESTORE) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.CloudDownload, contentDescription = null); Text("  Backup wiederherstellen") }
-                        TextButton(onClick = { GoogleSignIn.getClient(context, gso).signOut(); viewModel.setDriveAccount("") }, modifier = Modifier.fillMaxWidth()) { Text("Abmelden") }
+                        TextButton(onClick = { viewModel.setDriveAccount("") }, modifier = Modifier.fillMaxWidth()) { Text("Abmelden") }
                     }
                 }
             }
@@ -224,7 +212,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
 
         Button(onClick = { viewModel.saveSettings() }, modifier = Modifier.fillMaxWidth()) { Text("Einstellungen speichern") }
 
-        // ====== Gefahrenzone ======
         Card(colors = CardDefaults.cardColors(containerColor = DangerRedBg), border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.3f))) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Gefahrenzone", style = MaterialTheme.typography.titleMedium, color = DangerRed)
@@ -232,7 +219,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 OutlinedButton(onClick = { viewModel.showClearDataDialog(true) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed), border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.5f))) { Icon(Icons.Default.DeleteForever, contentDescription = null); Text("  Alle Daten löschen") }
             }
         }
-
         Text("SchlafGut v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
         Spacer(modifier = Modifier.height(80.dp))
     }
@@ -244,6 +230,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     if (state.showPasswordDialog) {
         BackupPasswordDialog(mode = state.passwordDialogMode, onConfirm = { pw -> when (state.passwordDialogMode) { PasswordDialogMode.UPLOAD -> viewModel.uploadDriveBackup(pw); PasswordDialogMode.RESTORE -> viewModel.restoreDriveBackup(pw) } }, onDismiss = { viewModel.dismissPasswordDialog() })
     }
+}
+
+private fun handleAuthResult(authResult: AuthorizationResult, viewModel: SettingsViewModel) {
+    val email = authResult.toGoogleSignInAccount()?.email
+    if (email != null) viewModel.setDriveAccount(email) else viewModel.setSignInError("Autorisierung erfolgreich, aber kein Email gefunden")
 }
 
 @Composable

@@ -18,8 +18,10 @@
 -keep class com.google.api.client.http.javanet.NetHttpTransport { *; }
 -keep class com.google.api.client.json.gson.GsonFactory { *; }
 -keep class com.google.api.services.drive.Drive { *; }
--keep class com.google.api.services.drive.Drive$* { *; }
--keep class com.google.api.services.drive.model.** { *; }
+-keep class com.google.api.services.drive.Drive$Files { *; }
+-keep class com.google.api.services.drive.Drive$Files$* { *; }
+-keep class com.google.api.services.drive.model.File { *; }
+-keep class com.google.api.services.drive.model.FileList { *; }
 -keep class com.google.http.client.json.JsonFactory { *; }
 -dontwarn com.google.api.client.**
 -dontwarn com.google.common.**
@@ -48,11 +50,3 @@
 
 # ===== Hilt / Dagger =====
 -dontwarn dagger.hilt.internal.**
--keep class dagger.hilt.android.internal.managers.ViewComponentManager$FragmentContextWrapper { *; }
-
-# ===== Health Connect =====
--keep class androidx.health.connect.client.records.** { *; }
-
-# ===== Vico Charts =====
--keep class com.patrykandpatrick.vico.core.model.** { *; }
--keep class com.patrykandpatrick.vico.core.cartesian.** { *; }

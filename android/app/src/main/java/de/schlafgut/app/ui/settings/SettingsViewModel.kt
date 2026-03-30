@@ -31,6 +31,9 @@ data class SettingsUiState(
 
     // Feste Medikamente
     val regularMedications: List<MedicationEntry> = emptyList(),
+    // Pending Medikament (noch nicht hinzugefügt)
+    val pendingMedName: String = "",
+    val pendingMedDosage: String = "",
 
     // Health Connect Profil-Daten
     val latestWeight: Double? = null,
@@ -38,14 +41,14 @@ data class SettingsUiState(
     val latestSteps: Int? = null,
     val latestSpO2: Double? = null,
 
-    // Individuelle Health-Datentyp-Auswahl
-    val healthReadWeight: Boolean = true,
-    val healthReadBodyTemp: Boolean = true,
-    val healthReadRestingHr: Boolean = true,
-    val healthReadHeartRate: Boolean = true,
-    val healthReadSpO2: Boolean = true,
-    val healthReadSteps: Boolean = true,
-    val healthReadSleep: Boolean = true,
+    // Individuelle Health-Datentyp-Auswahl (Default: false)
+    val healthReadWeight: Boolean = false,
+    val healthReadBodyTemp: Boolean = false,
+    val healthReadRestingHr: Boolean = false,
+    val healthReadHeartRate: Boolean = false,
+    val healthReadSpO2: Boolean = false,
+    val healthReadSteps: Boolean = false,
+    val healthReadSleep: Boolean = false,
 
     // Google Drive Backup
     val driveAccountEmail: String? = null,
@@ -68,9 +71,7 @@ class SettingsViewModel @Inject constructor(
     val uiState: StateFlow<SettingsUiState> = _uiState
 
     init {
-        _uiState.update {
-            it.copy(healthConnectAvailability = healthConnectManager.checkAvailability())
-        }
+        _uiState.update { it.copy(healthConnectAvailability = healthConnectManager.checkAvailability()) }
         viewModelScope.launch {
             repository.getSettings().collect { settings ->
                 val s = settings ?: UserSettingsEntity()
@@ -100,11 +101,9 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val settings = repository.getSettingsOnce()
             if (!settings.healthConnectEnabled) return@launch
-
             val entries = repository.getRecentEntriesOnce(1)
             val lastEntry = entries.firstOrNull() ?: return@launch
             val snapshot = repository.getHealthSnapshot(lastEntry.id) ?: return@launch
-
             _uiState.update {
                 it.copy(
                     latestWeight = snapshot.weightKg,
@@ -137,6 +136,8 @@ class SettingsViewModel @Inject constructor(
 
     fun setUserName(name: String) = _uiState.update { it.copy(userName = name) }
     fun setDefaultLatency(minutes: Int) = _uiState.update { it.copy(defaultSleepLatency = minutes) }
+    fun setPendingMedName(name: String) = _uiState.update { it.copy(pendingMedName = name) }
+    fun setPendingMedDosage(dosage: String) = _uiState.update { it.copy(pendingMedDosage = dosage) }
 
     fun setAppLockEnabled(enabled: Boolean) {
         _uiState.update { it.copy(appLockEnabled = enabled) }
@@ -161,7 +162,7 @@ class SettingsViewModel @Inject constructor(
     // --- Feste Medikamente ---
     fun addMedication(name: String, dosage: String) {
         val meds = _uiState.value.regularMedications + MedicationEntry(name, dosage)
-        _uiState.update { it.copy(regularMedications = meds) }
+        _uiState.update { it.copy(regularMedications = meds, pendingMedName = "", pendingMedDosage = "") }
         persistSettings()
     }
 
@@ -174,7 +175,14 @@ class SettingsViewModel @Inject constructor(
     fun showClearDataDialog(show: Boolean) = _uiState.update { it.copy(showClearDataDialog = show) }
     fun clearSuccessMessage() = _uiState.update { it.copy(successMessage = null) }
 
+    /** Speichert alle aktuellen Einstellungen. Fügt ggf. pending Medikament hinzu. */
     fun saveSettings() {
+        val state = _uiState.value
+        // Wenn ein Medikament-Name im Textfeld steht, automatisch hinzufügen
+        if (state.pendingMedName.isNotBlank()) {
+            val meds = state.regularMedications + MedicationEntry(state.pendingMedName.trim(), state.pendingMedDosage.trim())
+            _uiState.update { it.copy(regularMedications = meds, pendingMedName = "", pendingMedDosage = "") }
+        }
         _uiState.update { it.copy(successMessage = "Einstellungen gespeichert") }
         persistSettings()
     }

@@ -33,21 +33,15 @@ data class SleepLoggerUiState(
     val editingId: String? = null,
     val errorMessage: String? = null,
     val isSaved: Boolean = false,
-
-    // Substanzkonsum
     val alcoholLevel: Int = 0,
     val drugLevel: Int = 0,
     val sleepAid: Boolean = false,
     val medication: Boolean = false,
     val medicationNotes: String = "",
-
-    // Health Connect Daten
     val healthConnectEnabled: Boolean = false,
     val healthSnapshot: HealthSnapshotEntity? = null,
     val isLoadingHealth: Boolean = false,
     val healthError: String? = null,
-
-    // Reguläre Medikamente aus den Einstellungen
     val regularMedications: List<MedicationEntry> = emptyList()
 )
 
@@ -73,11 +67,8 @@ class SleepLoggerViewModel @Inject constructor(
                 )
             }
         }
-
         val entryId = savedStateHandle.get<String>("entryId")
-        if (entryId != null) {
-            loadEntry(entryId)
-        }
+        if (entryId != null) loadEntry(entryId)
     }
 
     private fun loadEntry(id: String) {
@@ -85,20 +76,11 @@ class SleepLoggerViewModel @Inject constructor(
             val entry = repository.getEntryById(id) ?: return@launch
             _uiState.update {
                 it.copy(
-                    isNap = entry.isNap,
-                    bedTime = entry.bedTime,
-                    wakeTime = entry.wakeTime,
-                    sleepLatency = entry.sleepLatency,
-                    wakeWindows = entry.wakeWindows,
-                    quality = entry.quality,
-                    notes = entry.notes,
-                    isEditing = true,
-                    editingId = entry.id,
-                    alcoholLevel = entry.alcoholLevel,
-                    drugLevel = entry.drugLevel,
-                    sleepAid = entry.sleepAid,
-                    medication = entry.medication,
-                    medicationNotes = entry.medicationNotes
+                    isNap = entry.isNap, bedTime = entry.bedTime, wakeTime = entry.wakeTime,
+                    sleepLatency = entry.sleepLatency, wakeWindows = entry.wakeWindows,
+                    quality = entry.quality, notes = entry.notes, isEditing = true, editingId = entry.id,
+                    alcoholLevel = entry.alcoholLevel, drugLevel = entry.drugLevel,
+                    sleepAid = entry.sleepAid, medication = entry.medication, medicationNotes = entry.medicationNotes
                 )
             }
             val snapshot = repository.getHealthSnapshot(id)
@@ -106,65 +88,29 @@ class SleepLoggerViewModel @Inject constructor(
         }
     }
 
-    /** Health-Daten von Health Connect für den aktuellen Zeitraum laden/aktualisieren. */
     fun refreshHealthData() {
         val state = _uiState.value
         if (!state.healthConnectEnabled) return
         if (healthConnectManager.checkAvailability() != HealthConnectManager.Availability.AVAILABLE) return
-
         _uiState.update { it.copy(isLoadingHealth = true, healthError = null) }
-
         viewModelScope.launch {
             try {
                 val settings = repository.getSettingsOnce()
                 val entryId = state.editingId ?: "temp_${System.currentTimeMillis()}"
-                val snapshot = healthDataRepository.fetchHealthSnapshot(
-                    sleepEntryId = entryId,
-                    bedTimeEpoch = state.bedTime,
-                    wakeTimeEpoch = state.wakeTime,
-                    settings = settings
-                )
-                _uiState.update {
-                    it.copy(
-                        healthSnapshot = snapshot,
-                        isLoadingHealth = false,
-                        healthError = if (snapshot == null) "Keine Health-Daten für diesen Zeitraum gefunden" else null
-                    )
-                }
+                val snapshot = healthDataRepository.fetchHealthSnapshot(entryId, state.bedTime, state.wakeTime, settings)
+                _uiState.update { it.copy(healthSnapshot = snapshot, isLoadingHealth = false, healthError = if (snapshot == null) "Keine Health-Daten für diesen Zeitraum gefunden" else null) }
             } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isLoadingHealth = false,
-                        healthError = "Fehler beim Laden: ${e.message}"
-                    )
-                }
+                _uiState.update { it.copy(isLoadingHealth = false, healthError = "Fehler beim Laden: ${e.message}") }
             }
         }
     }
 
-    fun clearHealthData() {
-        _uiState.update { it.copy(healthSnapshot = null, healthError = null) }
-    }
+    fun clearHealthData() { _uiState.update { it.copy(healthSnapshot = null, healthError = null) } }
 
     fun setIsNap(isNap: Boolean) {
-        _uiState.update { state ->
-            if (isNap) {
-                state.copy(
-                    isNap = true,
-                    bedTime = DateTimeUtil.defaultNapBedTime(),
-                    wakeTime = DateTimeUtil.defaultNapWakeTime(),
-                    sleepLatency = 5,
-                    wakeWindows = emptyList()
-                )
-            } else {
-                state.copy(
-                    isNap = false,
-                    bedTime = DateTimeUtil.defaultBedTime(),
-                    wakeTime = DateTimeUtil.defaultWakeTime(),
-                    sleepLatency = 15,
-                    wakeWindows = emptyList()
-                )
-            }
+        _uiState.update { s ->
+            if (isNap) s.copy(isNap = true, bedTime = DateTimeUtil.defaultNapBedTime(), wakeTime = DateTimeUtil.defaultNapWakeTime(), sleepLatency = 5, wakeWindows = emptyList())
+            else s.copy(isNap = false, bedTime = DateTimeUtil.defaultBedTime(), wakeTime = DateTimeUtil.defaultWakeTime(), sleepLatency = 15, wakeWindows = emptyList())
         }
     }
 
@@ -173,14 +119,10 @@ class SleepLoggerViewModel @Inject constructor(
     fun setSleepLatency(minutes: Int) = _uiState.update { it.copy(sleepLatency = minutes) }
     fun setQuality(quality: Int) = _uiState.update { it.copy(quality = quality) }
     fun setNotes(notes: String) = _uiState.update { it.copy(notes = notes) }
-    fun clearError() = _uiState.update { it.copy(errorMessage = null) }
-
     fun setAlcoholLevel(level: Int) = _uiState.update { it.copy(alcoholLevel = level) }
     fun setDrugLevel(level: Int) = _uiState.update { it.copy(drugLevel = level) }
     fun setSleepAid(enabled: Boolean) = _uiState.update { it.copy(sleepAid = enabled) }
-    fun setMedication(enabled: Boolean) = _uiState.update {
-        it.copy(medication = enabled, medicationNotes = if (!enabled) "" else it.medicationNotes)
-    }
+    fun setMedication(enabled: Boolean) = _uiState.update { it.copy(medication = enabled, medicationNotes = if (!enabled) "" else it.medicationNotes) }
     fun setMedicationNotes(notes: String) = _uiState.update { it.copy(medicationNotes = notes) }
 
     fun addWakeWindow(wakeWindow: WakeWindow) {
@@ -192,29 +134,22 @@ class SleepLoggerViewModel @Inject constructor(
         _uiState.update { it.copy(wakeWindows = (it.wakeWindows + wakeWindow).sortedBy { w -> w.start }) }
     }
 
-    fun removeWakeWindow(index: Int) {
-        _uiState.update { it.copy(wakeWindows = it.wakeWindows.toMutableList().apply { removeAt(index) }) }
-    }
+    fun removeWakeWindow(index: Int) { _uiState.update { it.copy(wakeWindows = it.wakeWindows.toMutableList().apply { removeAt(index) }) } }
 
     fun save() {
         val state = _uiState.value
-
         if (!SleepCalculator.validateTimeOrder(state.bedTime, state.wakeTime)) {
-            _uiState.update { it.copy(errorMessage = "Die Aufwachzeit muss nach der Bettzeit liegen.") }
-            return
+            _uiState.update { it.copy(errorMessage = "Die Aufwachzeit muss nach der Bettzeit liegen.") }; return
         }
         if (!SleepCalculator.validatePositiveDuration(state.bedTime, state.wakeTime, state.sleepLatency, state.wakeWindows)) {
-            _uiState.update { it.copy(errorMessage = "Die berechnete Schlafzeit ist negativ. Prüfe Einschlafzeit und Wachphasen.") }
-            return
+            _uiState.update { it.copy(errorMessage = "Die berechnete Schlafzeit ist negativ. Prüfe Einschlafzeit und Wachphasen.") }; return
         }
 
         viewModelScope.launch {
             val id = state.editingId ?: UUID.randomUUID().toString()
-
             val overlaps = repository.findOverlappingEntries(state.bedTime, state.wakeTime, id)
             if (overlaps.isNotEmpty()) {
-                _uiState.update { it.copy(errorMessage = "Dieser Zeitraum überschneidet sich mit einem existierenden Eintrag.") }
-                return@launch
+                _uiState.update { it.copy(errorMessage = "Dieser Zeitraum überschneidet sich mit einem existierenden Eintrag.") }; return@launch
             }
 
             val sleepDuration = SleepCalculator.calculateSleepDuration(state.bedTime, state.wakeTime, state.sleepLatency, state.wakeWindows)
@@ -228,23 +163,27 @@ class SleepLoggerViewModel @Inject constructor(
                 interruptionCount = state.wakeWindows.size, quality = state.quality,
                 tags = emptyList(), notes = state.notes,
                 alcoholLevel = state.alcoholLevel, drugLevel = state.drugLevel,
-                sleepAid = state.sleepAid, medication = state.medication,
-                medicationNotes = state.medicationNotes
+                sleepAid = state.sleepAid, medication = state.medication, medicationNotes = state.medicationNotes
             )
-
             repository.saveEntry(entry)
-            state.healthSnapshot?.let { snapshot ->
-                repository.saveHealthSnapshot(snapshot.copy(sleepEntryId = id))
+
+            // Health-Snapshot: vorhandenen speichern ODER automatisch fetchen wenn HC aktiv
+            var snapshot = state.healthSnapshot
+            if (snapshot == null && state.healthConnectEnabled &&
+                healthConnectManager.checkAvailability() == HealthConnectManager.Availability.AVAILABLE) {
+                try {
+                    val settings = repository.getSettingsOnce()
+                    snapshot = healthDataRepository.fetchHealthSnapshot(id, state.bedTime, state.wakeTime, settings)
+                } catch (_: Exception) { /* Health-Daten optional */ }
             }
+            snapshot?.let { repository.saveHealthSnapshot(it.copy(sleepEntryId = id)) }
+
             _uiState.update { it.copy(isSaved = true) }
         }
     }
 
     fun delete() {
         val id = _uiState.value.editingId ?: return
-        viewModelScope.launch {
-            repository.deleteEntry(id)
-            _uiState.update { it.copy(isSaved = true) }
-        }
+        viewModelScope.launch { repository.deleteEntry(id); _uiState.update { it.copy(isSaved = true) } }
     }
 }

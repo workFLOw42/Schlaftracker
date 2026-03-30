@@ -2,7 +2,7 @@ package de.schlafgut.app.data.health
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
@@ -58,19 +58,8 @@ class HealthConnectManager @Inject constructor(
         }
     }
 
-    suspend fun hasAllPermissions(): Boolean {
-        val client = getClient() ?: return false
-        val granted = client.permissionController.getGrantedPermissions()
-        return granted.containsAll(permissions)
-    }
-
-    suspend fun getGrantedPermissions(): Set<String> {
-        val client = getClient() ?: return emptySet()
-        return client.permissionController.getGrantedPermissions()
-    }
-
     fun getInstallIntent(): Intent {
-        val uri = Uri.parse("market://details")
+        val uri = "market://details".toUri()
             .buildUpon()
             .appendQueryParameter("id", "com.google.android.apps.healthdata")
             .appendQueryParameter("url", "healthconnect://onboarding")
