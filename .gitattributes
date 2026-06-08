@@ -1,0 +1,15 @@
+# Zeilenenden normalisieren: Textdateien als LF im Repo, nativ beim Checkout.
+* text=auto
+
+# Gradle-Wrapper: gradlew MUSS LF behalten (sonst "bad interpreter" auf Linux-CI),
+# die .bat MUSS CRLF behalten.
+gradlew      text eol=lf
+gradlew.bat  text eol=crlf
+*.jar        binary
+
+# Binaerdateien nie als Text behandeln.
+*.png  binary
+*.jpg  binary
+*.webp binary
+*.keystore binary
+*.jks  binary
