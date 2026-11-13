@@ -8,7 +8,7 @@
 - **Nickerchen-Tracking** – Naps separat erfassen mit eigener Statistik (Häufigkeit, Durchschnittsdauer)
 - **Substanzkonsum** – Dokumentiere Alkohol, Drogen, Schlafmittel und Medikamente
 - **Dashboard** – Übersicht über letzte Einträge, Durchschnittsqualität, Schlafdauer und Gesundheitsdaten
-- **Statistiken & Charts** – Visuelle Auswertungen deines Schlafverhaltens mit Vico-Charts
+- **Statistiken & Charts** – Visuelle Auswertungen deines Schlafverhaltens
 - **Health Connect Integration** – Automatischer Import von Gewicht, Herzfrequenz, Sauerstoffsättigung, Schritte und Körpertemperatur
 - **Datenexport** – Export als CSV, PDF oder JSON
 - **Google Drive Backup** – Verschlüsselte Sicherung deiner Daten in Google Drive
@@ -21,13 +21,12 @@
 | Bereich | Technologie |
 |---|---|
 | UI | Jetpack Compose, Material 3 |
-| Navigation | Navigation Compose |
+| Navigation | Navigation 3 (typsichere NavKeys) |
 | Architektur | MVVM, StateFlow |
 | DI | Hilt / Dagger |
 | Datenbank | Room |
 | Gesundheitsdaten | Health Connect API |
-| Charts | Vico (compose-m3) |
-| Backup | Google Drive API + Tink Encryption |
+| Backup | Google Drive API (AuthorizationClient) + AES-256-GCM |
 | Serialisierung | Kotlinx Serialization |
 | Build | Gradle (Kotlin DSL), KSP |
 
@@ -35,7 +34,7 @@
 
 - Android Studio Ladybug oder neuer
 - JDK 17
-- Android SDK 35 (compileSdk)
+- Android SDK 37 (compileSdk)
 - Minimum SDK 26 (Android 8.0)
 
 ## 🚀 Build & Ausführen
