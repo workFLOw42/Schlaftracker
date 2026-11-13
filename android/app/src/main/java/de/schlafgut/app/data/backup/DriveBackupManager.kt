@@ -1,13 +1,10 @@
 package de.schlafgut.app.data.backup
 
-import android.content.Context
-import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.ByteArrayContent
+import com.google.api.client.http.HttpRequestInitializer
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
-import com.google.api.services.drive.DriveScopes
-import dagger.hilt.android.qualifiers.ApplicationContext
 import de.schlafgut.app.data.export.JsonImportExport
 import de.schlafgut.app.data.repository.SleepRepository
 import kotlinx.coroutines.Dispatchers
@@ -24,22 +21,26 @@ import javax.inject.Singleton
  */
 @Singleton
 class DriveBackupManager @Inject constructor(
-    @param:ApplicationContext private val context: Context,
     private val repository: SleepRepository
 ) {
     companion object {
         private const val BACKUP_FILE_NAME = "schlafgut_backup.enc"
-        val SCOPES = listOf(DriveScopes.DRIVE_APPDATA)
     }
 
-    private fun getDriveService(accountEmail: String): Drive {
-        val credential = GoogleAccountCredential.usingOAuth2(context, SCOPES)
-        credential.selectedAccountName = accountEmail
+    /**
+     * Baut den Drive-Client mit einem OAuth-Access-Token aus der
+     * Identity-AuthorizationClient-API (kein GoogleSignInAccount / GoogleAccountCredential nötig).
+     * Das Token ist ca. 1 h gültig und wird vor jeder Operation still neu geholt.
+     */
+    private fun getDriveService(accessToken: String): Drive {
+        val requestInitializer = HttpRequestInitializer { request ->
+            request.headers.authorization = "Bearer $accessToken"
+        }
 
         return Drive.Builder(
             NetHttpTransport(),
             GsonFactory.getDefaultInstance(),
-            credential
+            requestInitializer
         )
             .setApplicationName("SchlafGut")
             .build()
@@ -48,10 +49,10 @@ class DriveBackupManager @Inject constructor(
     /**
      * Erstellt ein passwort-verschlüsseltes Backup und lädt es nach Google Drive hoch.
      */
-    suspend fun uploadBackup(accountEmail: String, password: String): Result<String> =
+    suspend fun uploadBackup(accessToken: String, password: String): Result<String> =
         withContext(Dispatchers.IO) {
             try {
-                val driveService = getDriveService(accountEmail)
+                val driveService = getDriveService(accessToken)
 
                 // 1. Daten sammeln
                 val entries = repository.getAllEntries().first()
@@ -84,11 +85,11 @@ class DriveBackupManager @Inject constructor(
      * Lädt das Backup herunter und entschlüsselt es mit dem Passwort.
      */
     suspend fun downloadAndRestoreBackup(
-        accountEmail: String,
+        accessToken: String,
         password: String
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val driveService = getDriveService(accountEmail)
+            val driveService = getDriveService(accessToken)
 
             // 1. Backup-Datei finden
             val fileId = findBackupFileId(driveService)
@@ -143,9 +144,9 @@ class DriveBackupManager @Inject constructor(
         }
     }
 
-    suspend fun hasBackup(accountEmail: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun hasBackup(accessToken: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val driveService = getDriveService(accountEmail)
+            val driveService = getDriveService(accessToken)
             findBackupFileId(driveService) != null
         } catch (e: Exception) {
             false

@@ -6,19 +6,22 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation3.runtime.NavKey
+import kotlinx.serialization.Serializable
 
-enum class Screen(val route: String) {
-    Dashboard("dashboard"),
-    SleepLogger("sleep_logger?entryId={entryId}"),
-    Statistics("statistics"),
-    Settings("settings"),
-    AllEntries("all_entries");
+/**
+ * Typsichere Routen für Navigation 3.
+ *
+ * `@Serializable`, damit der Backstack Prozess-Tod und Konfigurationswechsel übersteht.
+ */
+sealed interface Screen : NavKey {
+    @Serializable data object Dashboard : Screen
+    @Serializable data object AllEntries : Screen
+    @Serializable data object Statistics : Screen
+    @Serializable data object Settings : Screen
 
-    companion object {
-        fun sleepLoggerRoute(entryId: String? = null): String =
-            if (entryId != null) "sleep_logger?entryId=$entryId"
-            else "sleep_logger"
-    }
+    /** Neuer Eintrag bei `entryId == null`, sonst Bearbeiten. */
+    @Serializable data class SleepLogger(val entryId: String? = null) : Screen
 }
 
 data class NavigationItem(
@@ -33,3 +36,6 @@ val navigationItems = listOf(
     NavigationItem(Screen.Statistics, "Statistik", Icons.Default.BarChart),
     NavigationItem(Screen.Settings, "Einstellungen", Icons.Default.Settings)
 )
+
+/** Ziele, die über den Drawer erreichbar sind und FAB/Drawer-Geste zeigen. */
+val topLevelScreens: Set<Screen> = navigationItems.map { it.screen }.toSet()

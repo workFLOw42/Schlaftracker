@@ -3,9 +3,11 @@ package de.schlafgut.app.data.export
 import android.content.Context
 import android.net.Uri
 import androidx.core.content.FileProvider
+import de.schlafgut.app.data.entity.OutOfBedPeriod
 import de.schlafgut.app.data.entity.SleepEntryEntity
 import de.schlafgut.app.data.entity.UserSettingsEntity
 import de.schlafgut.app.data.entity.WakeWindow
+import de.schlafgut.app.util.SleepCalculator
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -55,11 +57,24 @@ data class ExportEntry(
     val interruptionCount: Int,
     val quality: Int,
     val tags: List<String> = emptyList(),
-    val notes: String = ""
+    val notes: String = "",
+    // Substanzkonsum – optional, damit ältere Backups weiterhin importierbar sind
+    val alcoholLevel: Int = 0,
+    val drugLevel: Int = 0,
+    val sleepAid: Boolean = false,
+    val medication: Boolean = false,
+    val medicationNotes: String = ""
 )
 
 @Serializable
 data class ExportWakeWindow(
+    val start: String,
+    val end: String,
+    val outOfBedPeriods: List<ExportOutOfBedPeriod> = emptyList()
+)
+
+@Serializable
+data class ExportOutOfBedPeriod(
     val start: String,
     val end: String
 )
@@ -88,13 +103,24 @@ object JsonImportExport {
                 sleepLatency = entry.sleepLatency,
                 sleepDurationMinutes = entry.sleepDurationMinutes,
                 wakeDurationMinutes = entry.wakeDurationMinutes,
-                wakeWindows = entry.wakeWindows.map {
-                    ExportWakeWindow(epochToIso(it.start), epochToIso(it.end))
+                wakeWindows = entry.wakeWindows.map { w ->
+                    ExportWakeWindow(
+                        start = epochToIso(w.start),
+                        end = epochToIso(w.end),
+                        outOfBedPeriods = w.outOfBedPeriods.map {
+                            ExportOutOfBedPeriod(epochToIso(it.start), epochToIso(it.end))
+                        }
+                    )
                 },
                 interruptionCount = entry.interruptionCount,
                 quality = entry.quality,
                 tags = entry.tags,
-                notes = entry.notes
+                notes = entry.notes,
+                alcoholLevel = entry.alcoholLevel,
+                drugLevel = entry.drugLevel,
+                sleepAid = entry.sleepAid,
+                medication = entry.medication,
+                medicationNotes = entry.medicationNotes
             )
         }
         val exportData = ExportData(
@@ -139,23 +165,51 @@ object JsonImportExport {
 
     private fun importSchlafGutFormat(root: JsonObject): ImportResult {
         val data = json.decodeFromString<ExportData>(root.toString())
-        val entries = data.entries.map { e ->
+        val entries = data.entries.mapNotNull { e ->
+            // Ungültige Pflicht-Zeitangaben -> Eintrag überspringen (statt 1.1.1970 zu speichern)
+            val bedTime = isoToEpoch(e.bedTime) ?: return@mapNotNull null
+            val wakeTime = isoToEpoch(e.wakeTime) ?: return@mapNotNull null
+            if (wakeTime <= bedTime) return@mapNotNull null
+            val date = isoToEpoch(e.date) ?: bedTime
+            val wakeWindows = sanitizedWakeWindows(
+                e.wakeWindows.mapNotNull { w ->
+                    WakeWindow(
+                        start = isoToEpoch(w.start) ?: return@mapNotNull null,
+                        end = isoToEpoch(w.end) ?: return@mapNotNull null,
+                        outOfBedPeriods = w.outOfBedPeriods.mapNotNull {
+                            OutOfBedPeriod(
+                                isoToEpoch(it.start) ?: return@mapNotNull null,
+                                isoToEpoch(it.end) ?: return@mapNotNull null
+                            )
+                        }
+                    )
+                },
+                bedTime, wakeTime
+            )
+            // Wurden Wachphasen gekürzt/entfernt, abgeleitete Werte neu berechnen
+            val windowsChanged = wakeWindows.size != e.wakeWindows.size ||
+                wakeWindows.zip(e.wakeWindows).any { (w, ew) -> epochToIso(w.start) != ew.start || epochToIso(w.end) != ew.end }
             SleepEntryEntity(
                 id = e.id,
                 isNap = e.isNap,
-                date = isoToEpoch(e.date),
-                bedTime = isoToEpoch(e.bedTime),
-                wakeTime = isoToEpoch(e.wakeTime),
+                date = date,
+                bedTime = bedTime,
+                wakeTime = wakeTime,
                 sleepLatency = e.sleepLatency,
-                sleepDurationMinutes = e.sleepDurationMinutes,
-                wakeDurationMinutes = e.wakeDurationMinutes,
-                wakeWindows = e.wakeWindows.map {
-                    WakeWindow(isoToEpoch(it.start), isoToEpoch(it.end))
-                },
-                interruptionCount = e.interruptionCount,
+                sleepDurationMinutes = if (windowsChanged) {
+                    SleepCalculator.calculateSleepDuration(bedTime, wakeTime, e.sleepLatency, wakeWindows).coerceAtLeast(0)
+                } else e.sleepDurationMinutes,
+                wakeDurationMinutes = if (windowsChanged) SleepCalculator.calculateWakeDuration(wakeWindows) else e.wakeDurationMinutes,
+                wakeWindows = wakeWindows,
+                interruptionCount = if (windowsChanged) wakeWindows.size else e.interruptionCount,
                 quality = e.quality,
                 tags = e.tags,
-                notes = e.notes
+                notes = e.notes,
+                alcoholLevel = e.alcoholLevel,
+                drugLevel = e.drugLevel,
+                sleepAid = e.sleepAid,
+                medication = e.medication,
+                medicationNotes = e.medicationNotes
             )
         }
         val settings = data.settings?.let {
@@ -164,7 +218,7 @@ object JsonImportExport {
                 defaultSleepLatency = it.defaultSleepLatency
             )
         }
-        return ImportResult(entries, settings)
+        return ImportResult(entries, settings, skippedCount = data.entries.size - entries.size)
     }
 
     /**
@@ -177,26 +231,32 @@ object JsonImportExport {
         val entries = entriesArray.mapNotNull { element ->
             try {
                 val obj = element.jsonObject
+                val bedTime = obj["bedTime"]?.jsonPrimitive?.content?.let(::isoToEpoch)
+                    ?: return@mapNotNull null
+                val wakeTime = obj["wakeTime"]?.jsonPrimitive?.content?.let(::isoToEpoch)
+                    ?: return@mapNotNull null
+                if (wakeTime <= bedTime) return@mapNotNull null
+                val date = obj["date"]?.jsonPrimitive?.content?.let(::isoToEpoch)
+                    ?: return@mapNotNull null
                 SleepEntryEntity(
                     id = obj["id"]?.jsonPrimitive?.content ?: UUID.randomUUID().toString(),
                     isNap = obj["isNap"]?.jsonPrimitive?.boolean ?: false,
-                    date = isoToEpoch(obj["date"]?.jsonPrimitive?.content ?: return@mapNotNull null),
-                    bedTime = isoToEpoch(
-                        obj["bedTime"]?.jsonPrimitive?.content ?: return@mapNotNull null
-                    ),
-                    wakeTime = isoToEpoch(
-                        obj["wakeTime"]?.jsonPrimitive?.content ?: return@mapNotNull null
-                    ),
+                    date = date,
+                    bedTime = bedTime,
+                    wakeTime = wakeTime,
                     sleepLatency = obj["sleepLatency"]?.jsonPrimitive?.int ?: 15,
                     sleepDurationMinutes = obj["sleepDurationMinutes"]?.jsonPrimitive?.int ?: 0,
                     wakeDurationMinutes = obj["wakeDurationMinutes"]?.jsonPrimitive?.int ?: 0,
-                    wakeWindows = obj["wakeWindows"]?.jsonArray?.map { w ->
-                        val wObj = w.jsonObject
-                        WakeWindow(
-                            isoToEpoch(wObj["start"]!!.jsonPrimitive.content),
-                            isoToEpoch(wObj["end"]!!.jsonPrimitive.content)
-                        )
-                    } ?: emptyList(),
+                    wakeWindows = sanitizedWakeWindows(
+                        obj["wakeWindows"]?.jsonArray?.mapNotNull { w ->
+                            val wObj = w.jsonObject
+                            WakeWindow(
+                                wObj["start"]?.jsonPrimitive?.content?.let(::isoToEpoch) ?: return@mapNotNull null,
+                                wObj["end"]?.jsonPrimitive?.content?.let(::isoToEpoch) ?: return@mapNotNull null
+                            )
+                        } ?: emptyList(),
+                        bedTime, wakeTime
+                    ),
                     interruptionCount = obj["interruptionCount"]?.jsonPrimitive?.int ?: 0,
                     quality = obj["quality"]?.jsonPrimitive?.int ?: 5,
                     tags = obj["tags"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
@@ -226,7 +286,12 @@ object JsonImportExport {
     private fun epochToIso(epochMillis: Long): String =
         Instant.ofEpochMilli(epochMillis).toString()
 
-    private fun isoToEpoch(isoString: String): Long =
+    /** Wachphasen außerhalb der Schlafzeit werden gekürzt bzw. verworfen. */
+    private fun sanitizedWakeWindows(windows: List<WakeWindow>, bedTime: Long, wakeTime: Long) =
+        SleepCalculator.sanitizeWakeWindows(windows, bedTime, wakeTime)
+
+    /** Liefert null bei ungültigen Zeitangaben, damit der Eintrag übersprungen werden kann. */
+    private fun isoToEpoch(isoString: String): Long? =
         try {
             Instant.parse(isoString).toEpochMilli()
         } catch (e: Exception) {
@@ -237,7 +302,7 @@ object JsonImportExport {
                     .toInstant()
                     .toEpochMilli()
             } catch (e2: Exception) {
-                0L
+                null
             }
         }
 }

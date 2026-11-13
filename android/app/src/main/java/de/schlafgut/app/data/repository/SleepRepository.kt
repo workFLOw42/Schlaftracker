@@ -1,5 +1,6 @@
 package de.schlafgut.app.data.repository
 
+import de.schlafgut.app.data.db.DashboardStats
 import de.schlafgut.app.data.db.HealthSnapshotDao
 import de.schlafgut.app.data.db.SleepEntryDao
 import de.schlafgut.app.data.db.SettingsDao
@@ -7,7 +8,6 @@ import de.schlafgut.app.data.entity.HealthSnapshotEntity
 import de.schlafgut.app.data.entity.SleepEntryEntity
 import de.schlafgut.app.data.entity.UserSettingsEntity
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -53,21 +53,10 @@ class SleepRepository @Inject constructor(
     ): List<SleepEntryEntity> =
         sleepEntryDao.findOverlappingEntries(bedTime, wakeTime, excludeId)
 
-    // --- Statistics helpers (nur Nachtschlaf, keine Nickerchen) ---
+    // --- Statistics (SQL-Aggregate) ---
 
-    fun getAverageQuality(): Flow<Double?> =
-        sleepEntryDao.getAllEntries().map { entries ->
-            val nights = entries.filter { !it.isNap }
-            if (nights.isEmpty()) null
-            else nights.map { it.quality }.average()
-        }
-
-    fun getAverageDuration(): Flow<Double?> =
-        sleepEntryDao.getAllEntries().map { entries ->
-            val nights = entries.filter { !it.isNap }
-            if (nights.isEmpty()) null
-            else nights.map { it.sleepDurationMinutes }.average()
-        }
+    fun getDashboardStats(): Flow<DashboardStats> =
+        sleepEntryDao.getDashboardStats()
 
     // --- Settings ---
 

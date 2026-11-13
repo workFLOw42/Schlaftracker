@@ -1,5 +1,9 @@
 package de.schlafgut.app
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
@@ -41,16 +45,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.ui.NavDisplay
 import dagger.hilt.android.AndroidEntryPoint
 import de.schlafgut.app.ui.RootViewModel
 import de.schlafgut.app.ui.allentries.AllEntriesScreen
@@ -58,6 +64,7 @@ import de.schlafgut.app.ui.dashboard.DashboardScreen
 import de.schlafgut.app.ui.logger.SleepLoggerScreen
 import de.schlafgut.app.ui.navigation.Screen
 import de.schlafgut.app.ui.navigation.navigationItems
+import de.schlafgut.app.ui.navigation.topLevelScreens
 import de.schlafgut.app.ui.onboarding.OnboardingScreen
 import de.schlafgut.app.ui.settings.SettingsScreen
 import de.schlafgut.app.ui.statistics.StatisticsScreen
@@ -69,9 +76,26 @@ import kotlinx.coroutines.launch
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
 
+    /**
+     * Wechselt die Zeitzone während die App läuft, wird die UI neu aufgebaut, damit alle
+     * Zeiten sofort in der neuen Zone angezeigt werden. ViewModels und der gespeicherte
+     * Navigationszustand bleiben dabei erhalten.
+     */
+    private val timeZoneReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == Intent.ACTION_TIMEZONE_CHANGED) recreate()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        ContextCompat.registerReceiver(
+            this,
+            timeZoneReceiver,
+            IntentFilter(Intent.ACTION_TIMEZONE_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
         enableEdgeToEdge()
         setContent {
             SchlafGutTheme {
@@ -83,6 +107,11 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        unregisterReceiver(timeZoneReceiver)
+        super.onDestroy()
     }
 }
 
@@ -140,18 +169,25 @@ fun SchlafGutRoot(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SchlafGutAppContent() {
-    val navController = rememberNavController()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
+    // Navigation 3: Der Backstack ist eine einfache, beobachtbare Liste typsicherer Routen
+    // und übersteht dank @Serializable auch Rotation und Prozess-Tod.
+    val backStack = rememberNavBackStack(Screen.Dashboard)
+    val currentScreen = backStack.lastOrNull() as? Screen ?: Screen.Dashboard
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    val showNav = currentRoute in listOf(
-        Screen.Dashboard.route,
-        Screen.AllEntries.route,
-        Screen.Statistics.route,
-        Screen.Settings.route
-    )
+    val showNav = currentScreen in topLevelScreens
+
+    /** Drawer-Ziel: Dashboard bleibt immer unten, darüber höchstens ein Top-Level-Ziel. */
+    fun navigateTopLevel(screen: Screen) {
+        backStack.clear()
+        backStack.add(Screen.Dashboard)
+        if (screen != Screen.Dashboard) backStack.add(screen)
+    }
+
+    fun openDrawer() {
+        scope.launch { drawerState.open() }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -165,10 +201,7 @@ fun SchlafGutAppContent() {
                         .padding(16.dp)
                         .clickable {
                             scope.launch { drawerState.close() }
-                            navController.navigate(Screen.Dashboard.route) {
-                                popUpTo(Screen.Dashboard.route) { inclusive = true }
-                                launchSingleTop = true
-                            }
+                            navigateTopLevel(Screen.Dashboard)
                         },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -189,14 +222,10 @@ fun SchlafGutAppContent() {
                     NavigationDrawerItem(
                         icon = { Icon(item.icon, contentDescription = null) },
                         label = { Text(item.label) },
-                        selected = currentRoute == item.screen.route,
+                        selected = currentScreen == item.screen,
                         onClick = {
                             scope.launch { drawerState.close() }
-                            navController.navigate(item.screen.route) {
-                                popUpTo(Screen.Dashboard.route) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
+                            navigateTopLevel(item.screen)
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
@@ -206,14 +235,14 @@ fun SchlafGutAppContent() {
     ) {
         Scaffold(
             topBar = {
-                if (showNav && currentRoute != Screen.Dashboard.route && currentRoute != Screen.AllEntries.route) {
+                if (showNav && currentScreen != Screen.Dashboard && currentScreen != Screen.AllEntries) {
                     TopAppBar(
                         title = {
-                            val label = navigationItems.find { it.screen.route == currentRoute }?.label ?: "SchlafGut"
+                            val label = navigationItems.find { it.screen == currentScreen }?.label ?: "SchlafGut"
                             Text(label)
                         },
                         navigationIcon = {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            IconButton(onClick = { openDrawer() }) {
                                 Icon(Icons.Default.Menu, contentDescription = "Menü")
                             }
                         }
@@ -224,7 +253,7 @@ fun SchlafGutAppContent() {
                 if (showNav) {
                     FloatingActionButton(
                         onClick = {
-                            navController.navigate(Screen.sleepLoggerRoute())
+                            backStack.add(Screen.SleepLogger())
                         },
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -235,55 +264,56 @@ fun SchlafGutAppContent() {
                 }
             }
         ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = Screen.Dashboard.route,
+            SchlafGutNavDisplay(
+                backStack = backStack,
+                onMenuClick = { openDrawer() },
                 modifier = Modifier.padding(innerPadding)
-            ) {
-                composable(Screen.Dashboard.route) {
-                    DashboardScreen(
-                        onMenuClick = { scope.launch { drawerState.open() } },
-                        onEntryClick = { entryId ->
-                            navController.navigate(Screen.sleepLoggerRoute(entryId))
-                        },
-                        onViewAllClick = {
-                            navController.navigate(Screen.AllEntries.route)
-                        }
-                    )
-                }
-
-                composable(Screen.AllEntries.route) {
-                    AllEntriesScreen(
-                        onMenuClick = { scope.launch { drawerState.open() } },
-                        onEntryClick = { entryId ->
-                            navController.navigate(Screen.sleepLoggerRoute(entryId))
-                        }
-                    )
-                }
-
-                composable(
-                    route = "sleep_logger?entryId={entryId}",
-                    arguments = listOf(
-                        navArgument("entryId") {
-                            type = NavType.StringType
-                            nullable = true
-                            defaultValue = null
-                        }
-                    )
-                ) {
-                    SleepLoggerScreen(
-                        onNavigateBack = { navController.popBackStack() }
-                    )
-                }
-
-                composable(Screen.Statistics.route) {
-                    StatisticsScreen()
-                }
-
-                composable(Screen.Settings.route) {
-                    SettingsScreen()
-                }
-            }
+            )
         }
     }
+}
+
+@Composable
+private fun SchlafGutNavDisplay(
+    backStack: NavBackStack<NavKey>,
+    onMenuClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val openEntry: (String?) -> Unit = { entryId -> backStack.add(Screen.SleepLogger(entryId)) }
+    val goBack: () -> Unit = { if (backStack.size > 1) backStack.removeLastOrNull() }
+
+    NavDisplay(
+        backStack = backStack,
+        onBack = goBack,
+        modifier = modifier,
+        // Eigener ViewModel-Store pro Eintrag: jeder SleepLogger bekommt ein frisches
+        // ViewModel, das beim Verlassen wieder aufgeräumt wird.
+        entryDecorators = listOf(
+            rememberSaveableStateHolderNavEntryDecorator(),
+            rememberViewModelStoreNavEntryDecorator()
+        ),
+        entryProvider = entryProvider {
+            entry<Screen.Dashboard> {
+                DashboardScreen(
+                    onMenuClick = onMenuClick,
+                    onEntryClick = { openEntry(it) },
+                    onViewAllClick = { backStack.add(Screen.AllEntries) }
+                )
+            }
+            entry<Screen.AllEntries> {
+                AllEntriesScreen(
+                    onMenuClick = onMenuClick,
+                    onEntryClick = { openEntry(it) }
+                )
+            }
+            entry<Screen.SleepLogger> { route ->
+                SleepLoggerScreen(
+                    entryId = route.entryId,
+                    onNavigateBack = goBack
+                )
+            }
+            entry<Screen.Statistics> { StatisticsScreen() }
+            entry<Screen.Settings> { SettingsScreen() }
+        }
+    )
 }

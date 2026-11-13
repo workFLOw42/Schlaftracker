@@ -182,6 +182,11 @@ fun WakeWindowDialog(
                         error = "Ende muss nach Start liegen"
                         return@TextButton
                     }
+                    if (sEpoch < bedTimeEpoch || eEpoch > wakeTimeEpoch) {
+                        error = "Wachphase muss zwischen %02d:%02d und %02d:%02d liegen"
+                            .format(bedDt.hour, bedDt.minute, wakeDt.hour, wakeDt.minute)
+                        return@TextButton
+                    }
 
                     // Aufsteh-Phasen validieren
                     val oobPeriods = mutableListOf<OutOfBedPeriod>()

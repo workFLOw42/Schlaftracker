@@ -68,34 +68,24 @@ class DashboardViewModel @Inject constructor(
 
     val uiState: StateFlow<DashboardUiState> = combine(
         repository.getRecentEntries(5),
-        repository.getAllEntries(),
-        repository.getAverageQuality(),
-        repository.getAverageDuration(),
-        combine(
-            _healthData,
-            repository.getSettings().map { it?.userName }
-        ) { health, name -> health to name }
-    ) { recent, allEntries, avgQuality, avgDuration, healthAndName ->
-        val (health, name) = healthAndName
-
-        val nights = allEntries.filter { !it.isNap }
-        val naps = allEntries.filter { it.isNap }
-
+        repository.getDashboardStats(),
+        _healthData,
+        repository.getSettings().map { it?.userName }
+    ) { recent, stats, health, name ->
         DashboardUiState(
             recentEntries = recent,
-            totalEntries = nights.size,
-            averageQuality = avgQuality,
-            averageDurationMinutes = avgDuration,
+            totalEntries = stats.nightCount,
+            averageQuality = stats.avgNightQuality,
+            averageDurationMinutes = stats.avgNightDurationMinutes,
             lastNightDurationMinutes = recent
                 .firstOrNull { !it.isNap }
                 ?.sleepDurationMinutes,
             healthData = health,
             userName = name,
             napSummary = NapSummary(
-                totalNaps = naps.size,
-                totalNights = nights.size,
-                averageNapDurationMinutes = if (naps.isEmpty()) null
-                else naps.map { it.sleepDurationMinutes }.average()
+                totalNaps = stats.napCount,
+                totalNights = stats.nightCount,
+                averageNapDurationMinutes = stats.avgNapDurationMinutes
             )
         )
     }.stateIn(

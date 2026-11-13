@@ -51,7 +51,7 @@ data class SettingsUiState(
     val healthReadSleep: Boolean = false,
 
     // Google Drive Backup
-    val driveAccountEmail: String? = null,
+    val driveConnected: Boolean = false,
     val isDriveBackupRunning: Boolean = false,
     val showPasswordDialog: Boolean = false,
     val passwordDialogMode: PasswordDialogMode = PasswordDialogMode.UPLOAD,
@@ -240,26 +240,51 @@ class SettingsViewModel @Inject constructor(
     }
 
     // --- Google Drive Backup ---
-    fun setDriveAccount(email: String) { _uiState.update { it.copy(driveAccountEmail = email, signInError = null) } }
-    fun setSignInError(message: String) { _uiState.update { it.copy(signInError = message) } }
+    // Ablauf: Passwort-Dialog -> Aktion vormerken -> Screen holt (still) ein Access-Token
+    // -> onDriveAuthorized(token) führt die vorgemerkte Aktion aus.
+    private data class PendingDriveAction(val mode: PasswordDialogMode, val password: String)
+    private var pendingDriveAction: PendingDriveAction? = null
+
+    fun queueDriveAction(mode: PasswordDialogMode, password: String) {
+        pendingDriveAction = PendingDriveAction(mode, password)
+        _uiState.update { it.copy(showPasswordDialog = false) }
+    }
+
+    fun onDriveAuthorized(accessToken: String) {
+        _uiState.update { it.copy(driveConnected = true, signInError = null) }
+        val action = pendingDriveAction ?: return
+        pendingDriveAction = null
+        when (action.mode) {
+            PasswordDialogMode.UPLOAD -> uploadDriveBackup(accessToken, action.password)
+            PasswordDialogMode.RESTORE -> restoreDriveBackup(accessToken, action.password)
+        }
+    }
+
+    fun disconnectDrive() {
+        pendingDriveAction = null
+        _uiState.update { it.copy(driveConnected = false, signInError = null) }
+    }
+
+    fun setSignInError(message: String) {
+        pendingDriveAction = null
+        _uiState.update { it.copy(signInError = message) }
+    }
     fun clearSignInError() { _uiState.update { it.copy(signInError = null) } }
     fun showPasswordDialog(mode: PasswordDialogMode) { _uiState.update { it.copy(showPasswordDialog = true, passwordDialogMode = mode) } }
     fun dismissPasswordDialog() { _uiState.update { it.copy(showPasswordDialog = false) } }
 
-    fun uploadDriveBackup(password: String) {
-        val email = _uiState.value.driveAccountEmail ?: return
-        _uiState.update { it.copy(isDriveBackupRunning = true, showPasswordDialog = false) }
+    private fun uploadDriveBackup(accessToken: String, password: String) {
+        _uiState.update { it.copy(isDriveBackupRunning = true) }
         viewModelScope.launch {
-            val result = driveBackupManager.uploadBackup(email, password)
+            val result = driveBackupManager.uploadBackup(accessToken, password)
             _uiState.update { it.copy(isDriveBackupRunning = false, successMessage = result.getOrElse { e -> "Backup fehlgeschlagen: ${e.message}" }) }
         }
     }
 
-    fun restoreDriveBackup(password: String) {
-        val email = _uiState.value.driveAccountEmail ?: return
-        _uiState.update { it.copy(isDriveBackupRunning = true, showPasswordDialog = false) }
+    private fun restoreDriveBackup(accessToken: String, password: String) {
+        _uiState.update { it.copy(isDriveBackupRunning = true) }
         viewModelScope.launch {
-            val result = driveBackupManager.downloadAndRestoreBackup(email, password)
+            val result = driveBackupManager.downloadAndRestoreBackup(accessToken, password)
             _uiState.update { it.copy(isDriveBackupRunning = false, successMessage = result.getOrElse { e -> "Wiederherstellung fehlgeschlagen: ${e.message}" }) }
         }
     }

@@ -11,7 +11,12 @@ import java.util.Locale
 
 object DateTimeUtil {
 
-    private val zone: ZoneId = ZoneId.systemDefault()
+    /**
+     * Bewusst kein gecachter Wert: Wechselt die Zeitzone während die App läuft
+     * (Reise, Sommerzeit-Regeln), setzt Android die Default-Zone neu – alle
+     * Umrechnungen verwenden dann sofort die aktuelle Zone.
+     */
+    private val zone: ZoneId get() = ZoneId.systemDefault()
     private val locale: Locale = Locale.GERMAN
 
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", locale)

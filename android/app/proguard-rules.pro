@@ -13,8 +13,6 @@
 -keep,includedescriptorclasses class de.schlafgut.app.**$$serializer { *; }
 
 # ===== Google API Client / Drive =====
-# noinspection ShrinkerUnresolvedReference
--keep class com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential { *; }
 -keep class com.google.api.client.http.javanet.NetHttpTransport { *; }
 -keep class com.google.api.client.json.gson.GsonFactory { *; }
 -keep class com.google.api.services.drive.Drive { *; }
@@ -28,6 +26,7 @@
 -dontwarn org.apache.http.**
 -dontwarn org.apache.commons.**
 -dontwarn javax.naming.**
+-dontwarn com.google.errorprone.**
 
 # ===== Gson (used by Google HTTP Client) =====
 -keepattributes Signature
@@ -41,12 +40,6 @@
 -keepclassmembers,allowobfuscation class * {
     @com.google.gson.annotations.SerializedName <fields>;
 }
-
-# ===== Tink =====
--keep class com.google.crypto.tink.aead.AeadConfig { *; }
--keep class com.google.crypto.tink.config.TinkConfig { *; }
--dontwarn com.google.crypto.tink.**
--dontwarn com.google.errorprone.**
 
 # ===== Hilt / Dagger =====
 -dontwarn dagger.hilt.internal.**

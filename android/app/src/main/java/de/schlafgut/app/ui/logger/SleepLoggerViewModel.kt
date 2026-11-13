@@ -1,8 +1,10 @@
 package de.schlafgut.app.ui.logger
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.schlafgut.app.data.entity.HealthSnapshotEntity
 import de.schlafgut.app.data.entity.MedicationEntry
@@ -19,7 +21,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
-import javax.inject.Inject
 
 data class SleepLoggerUiState(
     val isNap: Boolean = false,
@@ -45,13 +46,19 @@ data class SleepLoggerUiState(
     val regularMedications: List<MedicationEntry> = emptyList()
 )
 
-@HiltViewModel
-class SleepLoggerViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle,
+@HiltViewModel(assistedFactory = SleepLoggerViewModel.Factory::class)
+class SleepLoggerViewModel @AssistedInject constructor(
+    @Assisted private val entryId: String?,
     private val repository: SleepRepository,
     private val healthConnectManager: HealthConnectManager,
     private val healthDataRepository: HealthDataRepository
 ) : ViewModel() {
+
+    /** Die Eintrags-ID kommt typsicher aus der Route [de.schlafgut.app.ui.navigation.Screen.SleepLogger]. */
+    @AssistedFactory
+    interface Factory {
+        fun create(entryId: String?): SleepLoggerViewModel
+    }
 
     private val _uiState = MutableStateFlow(SleepLoggerUiState())
     val uiState: StateFlow<SleepLoggerUiState> = _uiState.asStateFlow()
@@ -67,7 +74,6 @@ class SleepLoggerViewModel @Inject constructor(
                 )
             }
         }
-        val entryId = savedStateHandle.get<String>("entryId")
         if (entryId != null) loadEntry(entryId)
     }
 
@@ -114,8 +120,35 @@ class SleepLoggerViewModel @Inject constructor(
         }
     }
 
-    fun setBedTime(time: Long) = _uiState.update { it.copy(bedTime = time) }
-    fun setWakeTime(time: Long) = _uiState.update { it.copy(wakeTime = time) }
+    fun setBedTime(time: Long) = updateTimes(bedTime = time, wakeTime = _uiState.value.wakeTime)
+    fun setWakeTime(time: Long) = updateTimes(bedTime = _uiState.value.bedTime, wakeTime = time)
+
+    /**
+     * Ändert Bett-/Aufwachzeit und hält die Wachphasen dabei immer innerhalb der Schlafzeit:
+     * überstehende Phasen werden gekürzt, komplett außerhalb liegende entfernt.
+     */
+    private fun updateTimes(bedTime: Long, wakeTime: Long) {
+        _uiState.update { s ->
+            // Bei ungültiger Reihenfolge (Zwischenzustand beim Editieren) Wachphasen nicht anfassen –
+            // das Speichern wird dann ohnehin mit einer Fehlermeldung verhindert.
+            if (wakeTime <= bedTime || s.wakeWindows.isEmpty()) {
+                return@update s.copy(bedTime = bedTime, wakeTime = wakeTime)
+            }
+            val sanitized = SleepCalculator.sanitizeWakeWindows(s.wakeWindows, bedTime, wakeTime)
+            val removed = s.wakeWindows.size - sanitized.size
+            val adjusted = removed == 0 && sanitized != s.wakeWindows.sortedBy { it.start }
+            s.copy(
+                bedTime = bedTime,
+                wakeTime = wakeTime,
+                wakeWindows = sanitized,
+                errorMessage = when {
+                    removed > 0 -> "$removed Wachphase(n) lag(en) außerhalb der neuen Schlafzeit und wurde(n) entfernt."
+                    adjusted -> "Wachphasen wurden an die neue Schlafzeit angepasst."
+                    else -> s.errorMessage
+                }
+            )
+        }
+    }
     fun setSleepLatency(minutes: Int) = _uiState.update { it.copy(sleepLatency = minutes) }
     fun setQuality(quality: Int) = _uiState.update { it.copy(quality = quality) }
     fun setNotes(notes: String) = _uiState.update { it.copy(notes = notes) }
@@ -131,6 +164,10 @@ class SleepLoggerViewModel @Inject constructor(
             _uiState.update { it.copy(errorMessage = "Die Wachphase muss innerhalb der Schlafzeit liegen.") }
             return
         }
+        if (SleepCalculator.overlapsExisting(wakeWindow, state.wakeWindows)) {
+            _uiState.update { it.copy(errorMessage = "Die Wachphase überschneidet sich mit einer bestehenden Wachphase.") }
+            return
+        }
         _uiState.update { it.copy(wakeWindows = (it.wakeWindows + wakeWindow).sortedBy { w -> w.start }) }
     }
 
@@ -140,6 +177,12 @@ class SleepLoggerViewModel @Inject constructor(
         val state = _uiState.value
         if (!SleepCalculator.validateTimeOrder(state.bedTime, state.wakeTime)) {
             _uiState.update { it.copy(errorMessage = "Die Aufwachzeit muss nach der Bettzeit liegen.") }; return
+        }
+        SleepCalculator.findInvalidWakeWindow(state.wakeWindows, state.bedTime, state.wakeTime)?.let { idx ->
+            _uiState.update {
+                it.copy(errorMessage = "Wachphase ${idx + 1} liegt außerhalb der Schlafzeit oder überschneidet sich. Bitte anpassen oder entfernen.")
+            }
+            return
         }
         if (!SleepCalculator.validatePositiveDuration(state.bedTime, state.wakeTime, state.sleepLatency, state.wakeWindows)) {
             _uiState.update { it.copy(errorMessage = "Die berechnete Schlafzeit ist negativ. Prüfe Einschlafzeit und Wachphasen.") }; return

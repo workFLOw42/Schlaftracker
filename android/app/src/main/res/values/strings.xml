@@ -5,4 +5,6 @@
     <string name="nav_statistics">Statistik</string>
     <string name="nav_settings">Einstellungen</string>
     <string name="nav_add_sleep">Schlaf eintragen</string>
+    <string name="settings_version">Version %1$s (%2$d)</string>
+    <string name="settings_by" translatable="false">by workFLOw42 · ©2026</string>
 </resources>

@@ -30,6 +30,18 @@ interface SleepEntryDao {
     @Query("SELECT COUNT(*) FROM sleep_entries")
     fun getEntryCount(): Flow<Int>
 
+    /** Aggregierte Kennzahlen fürs Dashboard – berechnet in SQLite statt über alle Entities. */
+    @Query(
+        """SELECT
+             SUM(CASE WHEN isNap = 0 THEN 1 ELSE 0 END)                    AS nightCount,
+             AVG(CASE WHEN isNap = 0 THEN quality END)                     AS avgNightQuality,
+             AVG(CASE WHEN isNap = 0 THEN sleepDurationMinutes END)        AS avgNightDurationMinutes,
+             SUM(CASE WHEN isNap = 1 THEN 1 ELSE 0 END)                    AS napCount,
+             AVG(CASE WHEN isNap = 1 THEN sleepDurationMinutes END)        AS avgNapDurationMinutes
+           FROM sleep_entries"""
+    )
+    fun getDashboardStats(): Flow<DashboardStats>
+
     @Upsert
     suspend fun upsertEntry(entry: SleepEntryEntity)
 
